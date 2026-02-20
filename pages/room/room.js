@@ -37,8 +37,14 @@ Page({
 
         try {
             const { players } = require('../../utils/players.js');
-            const randomIndex = Math.floor(Math.random() * players.length);
-            const target = players[randomIndex];
+            const targetIds = [];
+            let availablePlayers = [...players];
+            for (let i = 0; i < 6; i++) {
+                if (availablePlayers.length === 0) break;
+                const rIdx = Math.floor(Math.random() * availablePlayers.length);
+                targetIds.push(availablePlayers[rIdx].id);
+                availablePlayers.splice(rIdx, 1);
+            }
 
             const shortCode = Math.floor(1000 + Math.random() * 9000).toString();
             const myId = app.globalData.playerId;
@@ -48,16 +54,21 @@ Page({
                     createdAt: db.serverDate(),
                     shortCode: shortCode,
                     state: 'waiting',
-                    targetId: target.id,
+                    targetIds: targetIds,
+                    currentRound: 1,
+                    totalRounds: targetIds.length,
                     capacity: 4,
                     players: {
                         [myId]: {
                             name: '房主',
                             isHost: true,
-                            guesses: 0
+                            guesses: 0,
+                            scores: [],
+                            totalCorrect: 0,
+                            totalAttempts: 0,
+                            totalTimeMs: 0
                         }
-                    },
-                    winner: null
+                    }
                 }
             });
 
@@ -109,7 +120,11 @@ Page({
                     [`players.${myId}`]: {
                         name: rName,
                         isHost: false,
-                        guesses: 0
+                        guesses: 0,
+                        scores: [],
+                        totalCorrect: 0,
+                        totalAttempts: 0,
+                        totalTimeMs: 0
                     }
                 }
             });
@@ -153,7 +168,7 @@ Page({
                     roomState: roomData.state
                 });
 
-                if (roomData.state === 'playing') {
+                if (roomData.state === 'round_1') {
                     this.setData({ statusText: '游戏即将开始！' });
                     wx.vibrateLong();
 
@@ -179,7 +194,10 @@ Page({
 
         try {
             await db.collection('rooms').doc(this.data._realDbId).update({
-                data: { state: 'playing' }
+                data: {
+                    state: 'round_1',
+                    roundStartTime: Date.now()
+                }
             });
             wx.hideLoading();
             // Watcher will navigate to game
@@ -199,7 +217,11 @@ Page({
                     [`players.${devId}`]: {
                         name: '测试AI',
                         isHost: false,
-                        guesses: 0
+                        guesses: 0,
+                        scores: [],
+                        totalCorrect: 0,
+                        totalAttempts: 0,
+                        totalTimeMs: 0
                     }
                 }
             });

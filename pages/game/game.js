@@ -27,10 +27,30 @@ Page({
 
     // Multiplayer fields
     roomId: null,
-    role: null, // 'host' or 'guest' -> legacy, keeping it around just in case
+    // Multiplayer fields
+    roomId: null,
+    isHost: false,
+    role: null, // legacy
     opponents: [],
     winnerName: '',
-    watcher: null
+    watcher: null,
+
+    // Multi-Round fields
+    totalRounds: 0,
+    currentRound: 1,
+    roundStartTime: 0,
+    roundScoreSubmitted: false,
+    timeRemaining: 60,
+    timeFormatted: '00:60',
+    timerId: null,
+    leaderboard: []
+  },
+
+  onUnload() {
+    this.stopTimer();
+    if (this.data.watcher) {
+      this.data.watcher.close();
+    }
   },
 
   onLoad(options) {
@@ -82,7 +102,9 @@ Page({
 
   async initMultiplayer() {
     const db = wx.cloud.database();
-    const { roomId, role } = this.data;
+    const app = getApp();
+    const myId = app.globalData.playerId;
+    const { roomId } = this.data;
 
     wx.showLoading({ title: '加载房间数据...', mask: true });
 
@@ -91,7 +113,11 @@ Page({
       const res = await db.collection('rooms').doc(roomId).get();
       const roomData = res.data;
 
-      const target = this.data.players.find(p => p.id === roomData.targetId);
+      const currentRound = roomData.currentRound || 1;
+      const targetId = roomData.targetIds ? roomData.targetIds[currentRound - 1] : roomData.targetId;
+      const target = this.data.players.find(p => p.id === targetId);
+      const isHost = roomData.players && roomData.players[myId] ? roomData.players[myId].isHost : false;
+
       if (target) {
         const parts = target.name.split(' ');
         if (parts.length >= 2) {
@@ -102,6 +128,7 @@ Page({
       }
 
       this.setData({
+        isHost: isHost,
         target: target,
         guesses: [],
         inputVal: '',
@@ -109,10 +136,19 @@ Page({
         gameState: 'playing',
         showModal: false,
         opponents: [],
-        winnerName: ''
+        winnerName: '',
+        totalRounds: roomData.totalRounds || 0,
+        currentRound: currentRound,
+        roundStartTime: roomData.roundStartTime || null,
+        roundScoreSubmitted: false,
+        leaderboard: []
       });
 
       wx.hideLoading();
+
+      if (this.data.totalRounds > 0 && this.data.roundStartTime) {
+        this.startTimer(this.data.roundStartTime);
+      }
 
       // 2. Start watching for opponent updates
       const watcher = db.collection('rooms').doc(roomId).watch({
@@ -136,21 +172,31 @@ Page({
             });
           }
 
-          if (currentRoom.winner && currentRoom.winner !== myId && this.data.gameState === 'playing') {
-            someoneWon = true;
-            winnerName = playersObj[currentRoom.winner]?.name || '对手';
-          }
+          if (this.data.totalRounds > 0) {
+            // MULTI-ROUND MODE
+            if (currentRoom.state === 'finished' && this.data.gameState !== 'finished') {
+              this.showFinalScoreboard(currentRoom);
+            } else if (currentRoom.currentRound > this.data.currentRound) {
+              this.startNewRound(currentRoom);
+            }
+            this.setData({ opponents: opps });
+          } else {
+            // SINGLE-ROUND LEGACY MODE
+            if (currentRoom.winner && currentRoom.winner !== myId && this.data.gameState === 'playing') {
+              someoneWon = true;
+              winnerName = playersObj[currentRoom.winner]?.name || '对手';
+            }
+            this.setData({ opponents: opps });
 
-          this.setData({ opponents: opps });
-
-          if (someoneWon) {
-            this.setData({
-              gameState: 'lost',
-              showModal: true,
-              winnerName: winnerName
-            });
-            wx.vibrateLong();
-            wx.showToast({ title: `${winnerName} 率先猜中了！`, icon: 'none', duration: 3000 });
+            if (someoneWon) {
+              this.setData({
+                gameState: 'lost',
+                showModal: true,
+                winnerName: winnerName
+              });
+              wx.vibrateLong();
+              wx.showToast({ title: `${winnerName} 率先猜中了！`, icon: 'none', duration: 3000 });
+            }
           }
         },
         onError: (err) => {
@@ -165,6 +211,155 @@ Page({
       wx.showToast({ title: '房间已过期', icon: 'none' });
       setTimeout(() => { wx.navigateBack(); }, 2000);
     }
+  },
+
+  stopTimer() {
+    if (this.data.timerId) {
+      clearInterval(this.data.timerId);
+      this.setData({ timerId: null });
+    }
+  },
+
+  startTimer(startTime) {
+    this.stopTimer();
+    const duration = 60; // 60 seconds per round
+
+    const updateTimer = () => {
+      const start = parseInt(startTime);
+      const now = Date.now();
+      const elapsed = Math.floor((now - start) / 1000);
+      let rem = duration - elapsed;
+
+      if (rem <= 0) {
+        rem = 0;
+        this.stopTimer();
+        this.handleRoundTimeout();
+      }
+
+      // Format time remaining MM:SS
+      const m = Math.floor(rem / 60).toString().padStart(2, '0');
+      const s = (rem % 60).toString().padStart(2, '0');
+
+      this.setData({
+        timeRemaining: rem,
+        timeFormatted: `${m}:${s}`
+      });
+    };
+
+    // run once immediately
+    updateTimer();
+    const id = setInterval(updateTimer, 1000);
+    this.setData({ timerId: id });
+  },
+
+  handleRoundTimeout() {
+    if (this.data.gameState !== 'playing') {
+      if (this.data.isHost && this.data.roomId) {
+        this.scheduleNextRound();
+      }
+      return;
+    }
+
+    this.setData({
+      gameState: 'lost',
+      showModal: true,
+      winnerName: '时间到！'
+    });
+    wx.vibrateLong();
+
+    // Automatically submit score as failed if we hadn't already won
+    if (this.data.roomId && this.data.totalRounds > 0 && !this.data.roundScoreSubmitted) {
+      this.syncToCloud(this.data.guesses.length, false, true);
+      this.setData({ roundScoreSubmitted: true });
+    }
+
+    if (this.data.isHost && this.data.roomId) {
+      this.scheduleNextRound();
+    }
+  },
+
+  scheduleNextRound() {
+    setTimeout(() => {
+      const db = wx.cloud.database();
+      const { roomId, currentRound, totalRounds } = this.data;
+      const nextRound = currentRound + 1;
+
+      if (nextRound > totalRounds) {
+        db.collection('rooms').doc(roomId).update({
+          data: { state: 'finished' }
+        });
+      } else {
+        db.collection('rooms').doc(roomId).update({
+          data: {
+            state: 'round_' + nextRound,
+            currentRound: nextRound,
+            roundStartTime: Date.now()
+          }
+        });
+      }
+    }, 4000); // 4 seconds break
+  },
+
+  startNewRound(roomData) {
+    this.stopTimer();
+    const targetId = roomData.targetIds[roomData.currentRound - 1];
+    const target = this.data.players.find(p => p.id === targetId);
+
+    if (target) {
+      const parts = target.name.split(' ');
+      if (parts.length >= 2) {
+        target.initials = parts[0][0] + parts[1][0];
+      } else {
+        target.initials = target.name.substring(0, 2).toUpperCase();
+      }
+    }
+
+    this.setData({
+      target: target,
+      guesses: [],
+      inputVal: '',
+      searchResults: [],
+      gameState: 'playing',
+      showModal: false,
+      winnerName: '',
+      currentRound: roomData.currentRound,
+      roundStartTime: roomData.roundStartTime || Date.now(),
+      roundScoreSubmitted: false
+    });
+
+    this.startTimer(this.data.roundStartTime);
+    wx.vibrateShort({ type: 'medium' });
+    wx.showToast({ title: '新的一轮开始了！', icon: 'none' });
+  },
+
+  showFinalScoreboard(roomData) {
+    this.stopTimer();
+    const playersObj = roomData.players || {};
+    const lb = [];
+    for (const k in playersObj) {
+      lb.push({
+        id: k,
+        name: playersObj[k].name || '玩家',
+        totalCorrect: playersObj[k].totalCorrect || 0,
+        totalAttempts: playersObj[k].totalAttempts || 0,
+        totalTimeMs: playersObj[k].totalTimeMs || 0,
+        timeSecs: ((playersObj[k].totalTimeMs || 0) / 1000).toFixed(1)
+      });
+    }
+
+    // Sort
+    lb.sort((a, b) => {
+      if (b.totalCorrect !== a.totalCorrect) return b.totalCorrect - a.totalCorrect;
+      if (a.totalAttempts !== b.totalAttempts) return a.totalAttempts - b.totalAttempts;
+      return a.totalTimeMs - b.totalTimeMs;
+    });
+
+    this.setData({
+      gameState: 'finished',
+      showModal: false,
+      leaderboard: lb
+    });
+    wx.vibrateLong();
   },
 
   startNewGame() {
@@ -383,7 +578,12 @@ Page({
 
     // Multiplayer sync
     if (this.data.roomId) {
-      this.syncToCloud(newGuesses.length, won);
+      if (!this.data.roundScoreSubmitted) {
+        this.syncToCloud(newGuesses.length, won);
+        if (newState !== 'playing' && this.data.totalRounds > 0) {
+          this.setData({ roundScoreSubmitted: true });
+        }
+      }
     }
 
     if (newState !== 'playing') {
@@ -404,17 +604,35 @@ Page({
     }
   },
 
-  syncToCloud(guessesCount, won) {
+  syncToCloud(guessesCount, won, isTimeout = false) {
     const db = wx.cloud.database();
-    const { roomId } = this.data;
+    const _ = db.command;
+    const { roomId, currentRound, roundStartTime, totalRounds } = this.data;
     const app = getApp();
     const myId = app.globalData.playerId;
     const updateData = {
       [`players.${myId}.guesses`]: guessesCount
     };
 
-    if (won) {
-      updateData.winner = myId;
+    if (totalRounds > 0) {
+      if (won || isTimeout || guessesCount >= MAX_GUESSES) {
+        const timeSpentMs = roundStartTime ? (Date.now() - parseInt(roundStartTime)) : 0;
+        const cappedTime = timeSpentMs > 60000 ? 60000 : timeSpentMs;
+
+        updateData[`players.${myId}.scores`] = _.push([{
+          round: currentRound,
+          guessed: won,
+          attempts: guessesCount,
+          timeMs: cappedTime
+        }]);
+        updateData[`players.${myId}.totalCorrect`] = _.inc(won ? 1 : 0);
+        updateData[`players.${myId}.totalAttempts`] = _.inc(guessesCount);
+        updateData[`players.${myId}.totalTimeMs`] = _.inc(cappedTime);
+      }
+    } else {
+      if (won) {
+        updateData.winner = myId;
+      }
     }
 
     db.collection('rooms').doc(roomId).update({
