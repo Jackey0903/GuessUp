@@ -142,9 +142,12 @@
       </view>
 
       <view class="action-buttons">
-          <button class="share-btn primary" open-type="share">炫耀战绩</button>
+          <button class="share-btn primary" open-type="share" wx:if="{{!roomId}}">炫耀战绩</button>
           <button class="restart-btn ghost" bindtap="startNewGame" wx:if="{{!roomId}}">重新挑战</button>
-          <navigator url="/pages/index/index" open-type="reLaunch" class="restart-btn ghost" style="display:flex; justify-content:center; align-items:center;" wx:if="{{roomId}}">返回主城</navigator>
+          
+          <view wx:if="{{roomId}}" style="text-align: center; width: 100%; color: var(--muted); font-size: 28rpx; padding: 20rpx 0;">
+            <text>即将进入下一轮，请稍候...</text>
+          </view>
       </view>
     </view>
   </view>
