@@ -37,10 +37,9 @@ Page({
     this.setData({ players });
     this.initFilters();
 
-    if (options.roomId && options.role) {
+    if (options.roomId) {
       this.setData({
-        roomId: options.roomId,
-        role: options.role
+        roomId: options.roomId
       });
       this.initMultiplayer();
     } else {
