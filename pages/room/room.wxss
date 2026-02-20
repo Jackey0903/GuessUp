@@ -86,10 +86,11 @@
   letter-spacing: 4rpx;
 }
 
-.players-container {
+.players-grid {
   display: flex;
-  align-items: center;
-  justify-content: space-around;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 40rpx;
   width: 100%;
   margin-top: 20rpx;
 }
@@ -99,6 +100,7 @@
   flex-direction: column;
   align-items: center;
   gap: 16rpx;
+  width: 40%; /* 2 columns */
 }
 
 .avatar {
@@ -131,17 +133,24 @@
   box-shadow: 0 0 32rpx var(--good-glow);
 }
 
+.name-badge {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
 .name {
-  font-size: 28rpx;
+  font-size: 26rpx;
   font-weight: 600;
 }
 
-.vs {
-  font-size: 48rpx;
-  font-weight: 900;
-  color: var(--muted);
-  font-style: italic;
-  opacity: 0.5;
+.host-tag {
+  background: var(--accent);
+  color: white;
+  font-size: 18rpx;
+  padding: 4rpx 8rpx;
+  border-radius: 8rpx;
+  font-weight: bold;
 }
 
 .actions {

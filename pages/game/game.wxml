@@ -1,12 +1,14 @@
 <view class="container">
-  <!-- Multiplayer Progress Tracker -->
-  <view class="opponent-tracker glass" wx:if="{{roomId}}">
-    <view class="tracker-info">
-      <text class="tracker-label">对手进度</text>
-      <text class="tracker-value">已猜 {{opponentGuesses}} 次</text>
-    </view>
-    <view class="progress-bar">
-      <view class="progress-fill" style="width: {{(opponentGuesses / 8) * 100}}%"></view>
+  <!-- Multiplayer Progress Trackers -->
+  <view class="multiplayer-trackers glass" wx:if="{{roomId && opponents.length > 0}}">
+    <view class="tracker-row" wx:for="{{opponents}}" wx:key="id">
+      <view class="tracker-info">
+        <text class="tracker-name">{{item.name}}</text>
+        <text class="tracker-value">{{item.guesses}}/8</text>
+      </view>
+      <view class="progress-bar">
+        <view class="progress-fill" style="width: {{(item.guesses / 8) * 100}}%"></view>
+      </view>
     </view>
   </view>
 
@@ -119,8 +121,8 @@
           <view class="result-subtitle">{{gameState === 'won' ? '无情碾压' : (opponentWon ? '被无情碾压' : '遗憾离场')}}</view>
         </block>
         <block wx:else>
-          <view class="result-title">{{gameState === 'won' ? '挑战成功' : '挑战失败'}}</view>
-          <view class="result-subtitle">{{gameState === 'won' ? '恭喜你！' : '再接再厉'}}</view>
+          <view class="result-title">{{gameState === 'won' ? 'YOU WIN!' : 'GAME OVER'}}</view>
+      <view class="result-subtitle">{{gameState === 'won' ? '牛逼！你猜中了！' : (winnerName ? '遗憾！' + winnerName + '率先猜中！' : '太遗憾了...')}}</view>
         </block>
       </view>
       

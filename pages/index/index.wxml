@@ -14,7 +14,7 @@
   <view class="actions">
     <button class="primary start-btn glass" bindtap="startGame">每日挑战 DAILY</button>
     <view class="vs-action-group">
-      <button class="primary start-btn vs-btn" bindtap="toggleJoinInput">1v1 同步联机</button>
+      <button class="primary start-btn vs-btn" bindtap="toggleJoinInput">多人同步联机</button>
       
       <view class="join-input-container" wx:if="{{showJoinInput}}">
         <button class="ghost action-btn create-room-btn" bindtap="startVS">📍 创建新房间</button>

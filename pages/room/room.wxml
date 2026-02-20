@@ -1,6 +1,6 @@
 <view class="container">
   <view class="header">
-    <text class="title">1v1 对战大厅</text>
+    <text class="title">多人联机大厅</text>
     <text class="subtitle">REAL-TIME MULTIPLAYER</text>
   </view>
 
@@ -15,44 +15,57 @@
       <text class="value">{{roomId}}</text>
     </view>
     
-    <!-- Player avatars placeholder -->
-    <view class="players-container">
-      <view class="player-slot host-slot">
-        <view class="avatar">我</view>
-        <text class="name">房主</text>
+    <!-- Player avatars grid -->
+    <view class="players-grid">
+      <view class="player-slot {{item.isHost ? 'host-slot' : 'guest-slot joined'}}" wx:for="{{playersArray}}" wx:key="id">
+        <view class="avatar">{{item.name[0] || '?'}}</view>
+        <view class="name-badge">
+           <text class="name">{{item.name}}</text>
+           <text class="host-tag" wx:if="{{item.isHost}}">房主</text>
+        </view>
       </view>
       
-      <view class="vs">VS</view>
-      
-      <view class="player-slot guest-slot {{guestJoined ? 'joined' : 'waiting'}}">
-        <view class="avatar">{{guestJoined ? '敌' : '?'}}</view>
-        <text class="name">{{guestJoined ? '挑战者' : '等待加入...'}}</text>
+      <!-- Empty slots (pad to 4) -->
+      <view class="player-slot guest-slot waiting" wx:for="{{[1,2,3,4]}}" wx:key="*this" wx:if="{{index >= playersArray.length}}">
+        <view class="avatar">?</view>
+        <text class="name">等待加入</text>
       </view>
     </view>
   </view>
 
   <view class="actions">
-    <!-- Only host can invite -->
+    <!-- Host Start Game Button -->
     <button 
-      wx:if="{{isHost && !guestJoined && roomId}}" 
-      class="primary action-btn share-btn" 
+      wx:if="{{isHost && playersArray.length >= 2 && roomState === 'waiting'}}" 
+      class="primary action-btn start-game-btn" 
+      bindtap="startGame"
+    >
+      🚀 开始游戏 ({{playersArray.length}}/4)
+    </button>
+  
+    <!-- Host Invite Button -->
+    <button 
+      wx:if="{{isHost && playersArray.length < 4 && roomId}}" 
+      class="ghost action-btn share-btn" 
       open-type="share"
     >
       邀请微信好友
     </button>
     
+    <!-- Dev simulate -->
     <button 
-      wx:if="{{isHost && !guestJoined && roomId}}" 
+      wx:if="{{isHost && playersArray.length < 4 && roomId}}" 
       class="ghost action-btn" 
       bindtap="devSimulateJoin" 
-      style="border: 1px dashed rgba(255,255,255,0.3); margin-top: 20rpx; color: var(--muted);"
+      style="border: 1px dashed rgba(255,255,255,0.3); margin-top: 10rpx; color: var(--muted); font-size: 24rpx; padding: 10rpx;"
     >
-      [测试] 模拟对手加入
+      + [测试] 塞入1名机器人
     </button>
     
     <button 
       class="ghost action-btn" 
       bindtap="leaveRoom"
+      style="margin-top: 20rpx;"
     >
       返回首页
     </button>

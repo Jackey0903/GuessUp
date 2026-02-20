@@ -27,9 +27,9 @@ Page({
 
     // Multiplayer fields
     roomId: null,
-    role: null, // 'host' or 'guest'
-    opponentGuesses: 0,
-    opponentWon: false,
+    role: null, // 'host' or 'guest' -> legacy, keeping it around just in case
+    opponents: [],
+    winnerName: '',
     watcher: null
   },
 
@@ -109,8 +109,8 @@ Page({
         searchResults: [],
         gameState: 'playing',
         showModal: false,
-        opponentGuesses: 0,
-        opponentWon: false
+        opponents: [],
+        winnerName: ''
       });
 
       wx.hideLoading();
@@ -120,20 +120,38 @@ Page({
         onChange: (snapshot) => {
           if (snapshot.docs.length === 0) return;
           const currentRoom = snapshot.docs[0];
+          const app = getApp();
+          const myId = app.globalData.playerId;
 
-          // Determine opponent's stats
-          const oppGuesses = role === 'host' ? currentRoom.guestGuesses : currentRoom.hostGuesses;
-          this.setData({ opponentGuesses: oppGuesses || 0 });
+          const playersObj = currentRoom.players || {};
+          const opps = [];
+          let someoneWon = false;
+          let winnerName = '';
 
-          // Check if opponent won
-          if (currentRoom.winner && currentRoom.winner !== role && this.data.gameState === 'playing') {
+          for (const pid in playersObj) {
+            if (pid === myId) continue;
+            opps.push({
+              id: pid,
+              name: playersObj[pid].name || '对手',
+              guesses: playersObj[pid].guesses || 0
+            });
+          }
+
+          if (currentRoom.winner && currentRoom.winner !== myId && this.data.gameState === 'playing') {
+            someoneWon = true;
+            winnerName = playersObj[currentRoom.winner]?.name || '对手';
+          }
+
+          this.setData({ opponents: opps });
+
+          if (someoneWon) {
             this.setData({
               gameState: 'lost',
-              opponentWon: true,
-              showModal: true
+              showModal: true,
+              winnerName: winnerName
             });
             wx.vibrateLong();
-            wx.showToast({ title: '对手率先猜中了！', icon: 'none', duration: 3000 });
+            wx.showToast({ title: `${winnerName} 率先猜中了！`, icon: 'none', duration: 3000 });
           }
         },
         onError: (err) => {
@@ -398,17 +416,15 @@ Page({
 
   syncToCloud(guessesCount, won) {
     const db = wx.cloud.database();
-    const { roomId, role } = this.data;
-    const updateData = {};
-
-    if (role === 'host') {
-      updateData.hostGuesses = guessesCount;
-    } else {
-      updateData.guestGuesses = guessesCount;
-    }
+    const { roomId } = this.data;
+    const app = getApp();
+    const myId = app.globalData.playerId;
+    const updateData = {
+      [`players.${myId}.guesses`]: guessesCount
+    };
 
     if (won) {
-      updateData.winner = role;
+      updateData.winner = myId;
     }
 
     db.collection('rooms').doc(roomId).update({
