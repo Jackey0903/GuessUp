@@ -22,6 +22,16 @@
   line-height: 1.1;
 }
 
+.title-sub {
+  font-size: 52rpx;
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: 4rpx;
+  text-shadow: 0 0 16rpx rgba(255, 255, 255, 0.2), 0 0 40rpx rgba(255, 107, 0, 0.15);
+  line-height: 1.1;
+  margin-top: -10rpx;
+}
+
 .subtitle {
   font-size: 32rpx;
   letter-spacing: 16rpx;
