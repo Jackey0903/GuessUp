@@ -13,10 +13,10 @@
     <view class="tracker-row" wx:for="{{opponents}}" wx:key="id">
       <view class="tracker-info">
         <text class="tracker-name">{{item.name}}</text>
-        <text class="tracker-value">{{totalRounds > 0 ? item.guesses + '/10' : item.guesses + '/8'}}</text>
+        <text class="tracker-value">{{totalRounds > 0 ? item.guesses + '/6' : item.guesses + '/8'}}</text>
       </view>
       <view class="progress-bar">
-        <view class="progress-fill" style="width: {{totalRounds > 0 ? (item.guesses >= 10 ? 100 : (item.guesses / 10) * 100) : (item.guesses / 8) * 100}}%"></view>
+        <view class="progress-fill" style="width: {{totalRounds > 0 ? (item.guesses >= 6 ? 100 : (item.guesses / 6) * 100) : (item.guesses / 8) * 100}}%"></view>
       </view>
     </view>
   </view>
@@ -44,12 +44,17 @@
         </view>
       </picker>
 
-      <view 
-        class="filter-reset-btn" 
-        wx:if="{{selectedConf || selectedTeam || selectedPos}}" 
-        bindtap="resetFilters"
-      >
-        ✕
+      <view class="filter-controls-right" style="margin-left: auto; display: flex; align-items: center; gap: 16rpx;">
+        <view wx:if="{{totalRounds > 0}}" style="font-size: 20rpx; color: var(--muted); padding-top: 4rpx;">
+          雷达剩余: <text style="color: {{filterUsesLeft > 0 ? 'var(--accent)' : 'var(--bad)'}}; font-weight: bold;">{{filterUsesLeft}}</text>
+        </view>
+        <view 
+          class="filter-reset-btn" 
+          wx:if="{{selectedConf || selectedTeam || selectedPos}}" 
+          bindtap="resetFilters"
+        >
+          ✕
+        </view>
       </view>
     </view>
 
@@ -62,9 +67,12 @@
         bindinput="onInput"
         placeholder-style="color: var(--muted); font-size: 28rpx;"
       />
-      <view class="guess-count">{{guesses.length}} / 8</view>
+      <view class="guess-count">{{guesses.length}} / {{totalRounds > 0 ? 6 : 8}}</view>
     </view>
-    <scroll-view scroll-y class="search-results" wx:if="{{searchResults.length > 0}}">
+    <scroll-view scroll-y class="search-results" wx:if="{{inputVal || selectedConf || selectedTeam || selectedPos}}">
+      <view class="search-item empty-state" wx:if="{{searchResults.length === 0}}" style="justify-content: center;">
+        <text style="color: var(--muted); font-size: 26rpx;">未找到符合条件的球员</text>
+      </view>
       <view 
         class="search-item" 
         wx:for="{{searchResults}}" 

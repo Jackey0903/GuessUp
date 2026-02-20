@@ -45,7 +45,9 @@ Page({
     timerId: null,
     leaderboard: [],
     _notifiedWinners: {},
-    _schedulingNextRound: false
+    _schedulingNextRound: false,
+    filterUsesLeft: 3,
+    filtersUsedThisRound: false
   },
 
   onUnload() {
@@ -145,7 +147,9 @@ Page({
         roundScoreSubmitted: false,
         leaderboard: [],
         _notifiedWinners: {},
-        _schedulingNextRound: false
+        _schedulingNextRound: false,
+        filterUsesLeft: 3,
+        filtersUsedThisRound: false
       });
 
       wx.hideLoading();
@@ -361,7 +365,8 @@ Page({
       roundStartTime: roomData.roundStartTime || Date.now(),
       roundScoreSubmitted: false,
       _notifiedWinners: {},
-      _schedulingNextRound: false
+      _schedulingNextRound: false,
+      filtersUsedThisRound: false
     });
 
     this.startTimer(this.data.roundStartTime);
@@ -428,7 +433,8 @@ Page({
       gameState: 'playing',
       gameOver: false,
       gameWon: false,
-      showModal: false
+      showModal: false,
+      filtersUsedThisRound: false
     });
   },
 
@@ -437,7 +443,27 @@ Page({
     this.updateSearchResults();
   },
 
+  consumeFilter() {
+    if (!this.data.roomId || this.data.totalRounds === 0) return true; // Single player is unlimited
+
+    if (this.data.filtersUsedThisRound) return true; // Already unlocked for this round
+
+    if (this.data.filterUsesLeft <= 0) {
+      wx.showToast({ title: '雷达次数已用尽！', icon: 'error' });
+      return false;
+    }
+
+    this.setData({
+      filtersUsedThisRound: true,
+      filterUsesLeft: this.data.filterUsesLeft - 1
+    });
+
+    wx.showToast({ title: `雷达已激活！剩余 ${this.data.filterUsesLeft} 次`, icon: 'none' });
+    return true;
+  },
+
   onConfChange(e) {
+    if (!this.consumeFilter()) return;
     const idx = e.detail.value;
     const selectedConf = this.data.conferences[idx];
 
@@ -460,6 +486,7 @@ Page({
   },
 
   onTeamChange(e) {
+    if (!this.consumeFilter()) return;
     const idx = e.detail.value;
     const selectedTeam = this.data.teams[idx];
     const targetConf = this.data.teamConfMap[selectedTeam];
@@ -486,6 +513,7 @@ Page({
   },
 
   onPosChange(e) {
+    if (!this.consumeFilter()) return;
     const idx = e.detail.value;
     this.setData({
       posIndex: idx,
@@ -599,7 +627,7 @@ Page({
     const won = player.name === target.name;
     let newState = 'playing';
 
-    const currentMaxGuesses = (this.data.roomId && this.data.totalRounds > 0) ? 10 : MAX_GUESSES;
+    const currentMaxGuesses = (this.data.roomId && this.data.totalRounds > 0) ? 6 : MAX_GUESSES;
 
     if (won) {
       newState = 'won';
@@ -654,7 +682,7 @@ Page({
     };
 
     if (totalRounds > 0) {
-      if (won || isTimeout || guessesCount >= 10) {
+      if (won || isTimeout || guessesCount >= 6) {
         const timeSpentMs = roundStartTime ? (Date.now() - parseInt(roundStartTime)) : 0;
         const cappedTime = timeSpentMs > 120000 ? 120000 : timeSpentMs;
 
