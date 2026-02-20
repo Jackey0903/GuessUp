@@ -422,7 +422,7 @@ Page({
 
   onShareAppMessage() {
     const { gameState, guesses, target } = this.data;
-    let title = '吾猜(湖冠版) - 每天一位神秘NBA球星，你能猜对吗？';
+    let title = '吾猜(哈登冠名版) - 每天一位神秘NBA球星，你能猜对吗？';
 
     if (gameState === 'won') {
       title = `太牛了！我只用了 ${guesses.length} 次就猜出了今天的神秘球星是 ${target.name}！`;

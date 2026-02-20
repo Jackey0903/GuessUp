@@ -1,7 +1,7 @@
 <view class="container">
   <view class="header">
     <text class="title">吾猜</text>
-    <text class="title">（湖冠版）</text>
+    <text class="title">（哈登冠名版）</text>
     <text class="subtitle">GUESS UP</text>
     <text class="slogan">每天一位神秘现役球星，你能猜中吗？</text>
   </view>

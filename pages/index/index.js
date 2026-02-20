@@ -54,7 +54,7 @@ Page({
 
   onShareAppMessage() {
     return {
-      title: '吾猜(湖冠版) - 每天一位神秘NBA球星，你能猜对吗？',
+      title: '吾猜(哈登冠名版) - 每天一位神秘NBA球星，你能猜对吗？',
       path: '/pages/index/index',
       imageUrl: '' // Optional: custom share image
     };
