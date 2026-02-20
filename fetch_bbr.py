@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup
 import time
 import unicodedata
 import re
+
 import sys
 
 def normalize(name):
