@@ -169,18 +169,9 @@ Page({
   },
 
   startNewGame() {
-    // Daily Mode Implementation
-    // Use current date to pick a player index
-    const today = new Date();
-    const dateStr = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
-
-    // Simple hash of standard date string to index
-    let hash = 0;
-    for (let i = 0; i < dateStr.length; i++) {
-      hash = ((hash << 5) - hash) + dateStr.charCodeAt(i);
-      hash |= 0;
-    }
-    const dailyIndex = Math.abs(hash) % this.data.players.length;
+    // Random Mode Implementation
+    // Pick a purely random player every time so the user can play continuously
+    const dailyIndex = Math.floor(Math.random() * this.data.players.length);
 
     // For testing/dev, maybe we want random? 
     // User requested "Sigdle" style which is Daily.

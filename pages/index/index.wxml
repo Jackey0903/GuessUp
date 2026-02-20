@@ -12,7 +12,7 @@
   </view>
 
   <view class="actions">
-    <button class="primary start-btn glass" bindtap="startGame">每日挑战 DAILY</button>
+    <button class="primary start-btn glass" bindtap="startGame">随机无尽模式 RANDOM</button>
     <view class="vs-action-group">
       <button class="primary start-btn vs-btn" bindtap="toggleJoinInput">多人同步联机</button>
       
