@@ -93,7 +93,6 @@
       <view class="header-cell">球员</view>
       <view class="header-cell">球队</view>
       <view class="header-cell">联盟</view>
-      <view class="header-cell">分区</view>
       <view class="header-cell">位置</view>
       <view class="header-cell">身高</view>
       <view class="header-cell">年龄</view>
@@ -108,7 +107,6 @@
             <view class="content">{{item.team.value}}</view>
         </view>
         <view class="cell {{item.conf.status}}">{{item.conf.value}}</view>
-        <view class="cell {{item.div.status}}">{{item.div.value}}</view>
         <view class="cell {{item.pos.status}}">{{item.pos.value}}</view>
         <view class="cell {{item.height.status}}">
           {{item.height.value}}

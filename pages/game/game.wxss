@@ -264,8 +264,8 @@
 
 .grid-row {
   display: grid;
-  /* Name | Team | Conf | Div | Pos | Ht | Age | Num */
-  grid-template-columns: 2fr 1.2fr 1fr 1fr 1.2fr 1.4fr 0.9fr 0.9fr;
+  /* Name | Team | Conf | Pos | Ht | Age | Num */
+  grid-template-columns: 2fr 1.5fr 1.1fr 1.3fr 1.4fr 0.9fr 0.9fr;
   gap: 8rpx;
 }
 

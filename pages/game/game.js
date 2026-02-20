@@ -597,9 +597,11 @@ Page({
         value: player.name,
         status: player.name === target.name ? 'correct' : 'incorrect'
       },
-      team: { value: player.team_cn, status: player.team === target.team ? 'correct' : 'incorrect' },
+      team: {
+        value: player.team_cn,
+        status: player.team === target.team ? 'correct' : (player.div === target.div ? 'partial' : 'incorrect')
+      },
       conf: { value: player.conf_cn, status: player.conf === target.conf ? 'correct' : 'incorrect' },
-      div: { value: player.div_cn, status: player.div === target.div ? 'correct' : 'incorrect' },
       pos: {
         value: player.pos_cn,
         status: player.pos === target.pos ? 'correct' : (
