@@ -1,0 +1,140 @@
+<view class="container">
+  <!-- Multiplayer Progress Tracker -->
+  <view class="opponent-tracker glass" wx:if="{{roomId}}">
+    <view class="tracker-info">
+      <text class="tracker-label">对手进度</text>
+      <text class="tracker-value">已猜 {{opponentGuesses}} 次</text>
+    </view>
+    <view class="progress-bar">
+      <view class="progress-fill" style="width: {{(opponentGuesses / 8) * 100}}%"></view>
+    </view>
+  </view>
+
+  <!-- Search Area and Filters -->
+  <view class="search-container" wx:if="{{gameState === 'playing'}}">
+    
+    <!-- Advanced Filters -->
+    <view class="filter-bar">
+      <picker bindchange="onConfChange" value="{{confIndex}}" range="{{conferences}}">
+        <view class="filter-btn {{selectedConf ? 'active' : ''}}">
+          {{selectedConf || '联盟'}} <text class="arrow-down">▼</text>
+        </view>
+      </picker>
+
+      <picker bindchange="onTeamChange" value="{{teamIndex}}" range="{{teams}}">
+        <view class="filter-btn {{selectedTeam ? 'active' : ''}}">
+          {{selectedTeam || '球队'}} <text class="arrow-down">▼</text>
+        </view>
+      </picker>
+
+      <picker bindchange="onPosChange" value="{{posIndex}}" range="{{positions}}">
+        <view class="filter-btn {{selectedPos ? 'active' : ''}}">
+          {{selectedPos || '位置'}} <text class="arrow-down">▼</text>
+        </view>
+      </picker>
+
+      <view 
+        class="filter-reset-btn" 
+        wx:if="{{selectedConf || selectedTeam || selectedPos}}" 
+        bindtap="resetFilters"
+      >
+        ✕
+      </view>
+    </view>
+
+    <!-- Search Input -->
+    <view class="search-input-wrapper">
+      <input 
+        class="search-input" 
+        placeholder="搜名字或选条件查名册" 
+        value="{{inputVal}}" 
+        bindinput="onInput"
+        placeholder-style="color: var(--muted); font-size: 28rpx;"
+      />
+      <view class="guess-count">{{guesses.length}} / 8</view>
+    </view>
+    <scroll-view scroll-y class="search-results" wx:if="{{searchResults.length > 0}}">
+      <view 
+        class="search-item" 
+        wx:for="{{searchResults}}" 
+        wx:key="id" 
+        bindtap="selectPlayer" 
+        data-player="{{item}}"
+      >
+        <view class="item-name">{{item.name}}</view>
+        <text class="item-detail">{{item.team_cn}} - #{{item.number}}</text>
+      </view>
+    </scroll-view>
+  </view>
+
+  <!-- Game Grid -->
+  <view class="game-board">
+    <!-- Header Row -->
+    <view class="grid-row headers">
+      <view class="header-cell">球员</view>
+      <view class="header-cell">球队</view>
+      <view class="header-cell">联盟</view>
+      <view class="header-cell">分区</view>
+      <view class="header-cell">位置</view>
+      <view class="header-cell">身高</view>
+      <view class="header-cell">年龄</view>
+      <view class="header-cell">号码</view>
+    </view>
+
+    <!-- Guesses -->
+    <block wx:for="{{guesses}}" wx:key="index">
+      <view class="grid-row guess-row fade-in">
+        <view class="cell name-col {{item.name.status}}">{{item.name.value}}</view>
+        <view class="cell {{item.team.status}}">
+            <view class="content">{{item.team.value}}</view>
+        </view>
+        <view class="cell {{item.conf.status}}">{{item.conf.value}}</view>
+        <view class="cell {{item.div.status}}">{{item.div.value}}</view>
+        <view class="cell {{item.pos.status}}">{{item.pos.value}}</view>
+        <view class="cell {{item.height.status}}">
+          {{item.height.value}}
+          <text wx:if="{{item.height.arrow === 'up'}}" class="arrow">↑</text>
+          <text wx:if="{{item.height.arrow === 'down'}}" class="arrow">↓</text>
+        </view>
+        <view class="cell {{item.age.status}}">
+          {{item.age.value}}
+          <text wx:if="{{item.age.arrow === 'up'}}" class="arrow">↑</text>
+          <text wx:if="{{item.age.arrow === 'down'}}" class="arrow">↓</text>
+        </view>
+        <view class="cell {{item.number.status}}">
+          {{item.number.value}}
+          <text wx:if="{{item.number.arrow === 'up'}}" class="arrow">↑</text>
+          <text wx:if="{{item.number.arrow === 'down'}}" class="arrow">↓</text>
+        </view>
+      </view>
+    </block>
+  </view>
+
+  <!-- Result Modal -->
+  <view class="modal-mask" wx:if="{{showModal}}">
+    <view class="modal-content {{gameState}}">
+      <view class="result-header">
+        <block wx:if="{{roomId}}">
+          <view class="result-title">{{gameState === 'won' ? '你赢了！' : (opponentWon ? '对手获胜' : '你输了！')}}</view>
+          <view class="result-subtitle">{{gameState === 'won' ? '无情碾压' : (opponentWon ? '被无情碾压' : '遗憾离场')}}</view>
+        </block>
+        <block wx:else>
+          <view class="result-title">{{gameState === 'won' ? '挑战成功' : '挑战失败'}}</view>
+          <view class="result-subtitle">{{gameState === 'won' ? '恭喜你！' : '再接再厉'}}</view>
+        </block>
+      </view>
+      
+      <view class="result-card">
+        <view class="player-avatar">{{target.initials}}</view>
+        <view class="player-name">{{target.name}}</view>
+        <view class="player-detail">{{target.team_cn}} | #{{target.number}} | {{target.pos_cn}}</view>
+      </view>
+
+      <view class="action-buttons">
+          <button class="share-btn primary" open-type="share">炫耀战绩</button>
+          <button class="restart-btn ghost" bindtap="startNewGame" wx:if="{{!roomId}}">重新挑战</button>
+          <navigator url="/pages/index/index" open-type="reLaunch" class="restart-btn ghost" style="display:flex; justify-content:center; align-items:center;" wx:if="{{roomId}}">返回主城</navigator>
+      </view>
+    </view>
+  </view>
+</view>

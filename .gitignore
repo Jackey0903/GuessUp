@@ -1,0 +1,29 @@
+# WeChat Developer Tool
+/project.private.config.json
+/project.config.json
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Mac
+.DS_Store
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDEs and Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Cloud functions local config
+cloudfunctions/**/node_modules/
+cloudfunctions/**/package-lock.json

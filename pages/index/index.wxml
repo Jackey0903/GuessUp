@@ -1,0 +1,74 @@
+<view class="container">
+  <view class="header">
+    <text class="title">吾猜</text>
+    <text class="title">（湖冠版）</text>
+    <text class="subtitle">GUESS UP</text>
+    <text class="slogan">每天一位神秘现役球星，你能猜中吗？</text>
+  </view>
+
+  <view class="hero">
+    <view class="halo"></view>
+    <view class="basketball-icon">🏀</view>
+  </view>
+
+  <view class="actions">
+    <button class="primary start-btn glass" bindtap="startGame">每日挑战 DAILY</button>
+    <view class="vs-action-group">
+      <button class="primary start-btn vs-btn" bindtap="toggleJoinInput">1v1 同步联机</button>
+      
+      <view class="join-input-container" wx:if="{{showJoinInput}}">
+        <button class="ghost action-btn create-room-btn" bindtap="startVS">📍 创建新房间</button>
+        <view class="divider"><text>或</text></view>
+        <view class="input-row">
+          <input 
+            class="room-code-input" 
+            type="number" 
+            maxlength="4" 
+            placeholder="输入 4 位房间号" 
+            placeholder-class="input-placeholder"
+            bindinput="onRoomCodeInput"
+          />
+          <button class="join-btn" bindtap="joinRoomByCode">加入</button>
+        </view>
+      </view>
+    </view>
+    
+    <button class="ghost action-btn" bindtap="showRules">玩法说明 HOW TO PLAY</button>
+    
+    <view class="version-container">
+      <text class="version">PRO EDITION</text>
+    </view>
+  </view>
+
+  <!-- Instructions Modal -->
+  <view class="modal-mask" wx:if="{{showModal}}">
+    <view class="modal-content rules-modal">
+      <view class="result-header">
+        <view class="result-title">玩法说明</view>
+        <view class="result-subtitle">HOW TO PLAY</view>
+      </view>
+      
+      <view class="rules-body">
+        <text class="rule-p">1. 你有 <text class="highlight">8 次</text> 机会猜出今天的神秘现役球员。</text>
+        <text class="rule-p">2. 每次猜测后，会根据结果给出颜色提示：</text>
+        
+        <view class="legend-row">
+          <view class="cell correct">G</view>
+          <text class="legend-text">绿色代表完全匹配。</text>
+        </view>
+        <view class="legend-row">
+          <view class="cell partial">F</view>
+          <text class="legend-text">黄色代表部分匹配（如：猜后卫，实际是双能卫；或数字误差之内）。</text>
+        </view>
+        <view class="legend-row">
+          <view class="cell incorrect">C</view>
+          <text class="legend-text">灰色代表完全不匹配。</text>
+        </view>
+        
+        <text class="rule-p">3. 如果出现箭头 <text class="arrow">↑</text> <text class="arrow">↓</text> ，代表正确答案的数字比你猜的更高或更低。</text>
+      </view>
+
+      <button class="primary restart-btn" bindtap="hideRules">GOT IT</button>
+    </view>
+  </view>
+</view>

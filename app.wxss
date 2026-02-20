@@ -1,0 +1,102 @@
+page {
+  --bg: #0A0A0C; /* Deep space black */
+  --card: rgba(25, 27, 33, 0.6); /* Glassmorphism dark card */
+  --card-solid: #191B21;
+  --text: #ffffff;
+  --muted: #8F95B2;
+  --accent: #FF6B00; /* Neon Orange / Lakers Gold */
+  --accent-glow: rgba(255, 107, 0, 0.4);
+  --good: #00E676; /* Neon Green */
+  --good-glow: rgba(0, 230, 118, 0.4);
+  --bad: #1E222D; /* Dark Grey */
+  --bad-glow: rgba(30, 34, 45, 0.4);
+  --partial: #FFEA00; /* Bright Yellow */
+  --partial-glow: rgba(255, 234, 0, 0.4);
+  
+  background: var(--bg);
+  color: var(--text);
+  font-family: "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+view,
+text,
+button,
+input {
+  box-sizing: border-box;
+}
+
+.container {
+  min-height: 100vh;
+  padding: 80rpx 48rpx 64rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 32rpx;
+}
+
+/* Base Glassmorphism utility */
+.glass {
+  background: var(--card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1rpx solid rgba(255, 255, 255, 0.08);
+}
+
+.primary {
+  background: linear-gradient(135deg, #FF8A00 0%, #FF2E00 100%);
+  color: #ffffff;
+  border-radius: 20rpx;
+  padding: 24rpx 32rpx;
+  font-size: 34rpx;
+  font-weight: bold;
+  border: none;
+  box-shadow: 0 12rpx 32rpx var(--accent-glow);
+  transition: all 0.2s ease;
+}
+
+.primary:active {
+  transform: scale(0.96);
+  box-shadow: 0 4rpx 16rpx var(--accent-glow);
+}
+
+.primary[disabled] {
+  opacity: 0.5;
+  filter: grayscale(100%);
+  box-shadow: none;
+}
+
+.ghost {
+  background: transparent;
+  color: var(--text);
+  border: 2rpx solid rgba(255, 255, 255, 0.2);
+  border-radius: 20rpx;
+  padding: 20rpx 32rpx;
+  font-size: 30rpx;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.ghost:active {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+/* Global Animations */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-20rpx); }
+}
+
+@keyframes popIn {
+  0% { opacity: 0; transform: scale(0.9) translateY(20rpx); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 var(--accent-glow); }
+  70% { box-shadow: 0 0 0 20rpx rgba(255, 107, 0, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 107, 0, 0); }
+}
