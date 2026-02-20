@@ -222,7 +222,7 @@ Page({
 
   startTimer(startTime) {
     this.stopTimer();
-    const duration = 60; // 60 seconds per round
+    const duration = 120; // 120 seconds per round
 
     const updateTimer = () => {
       const start = parseInt(startTime);
@@ -350,7 +350,7 @@ Page({
     // Sort
     lb.sort((a, b) => {
       if (b.totalCorrect !== a.totalCorrect) return b.totalCorrect - a.totalCorrect;
-      if (a.totalAttempts !== b.totalAttempts) return a.totalAttempts - b.totalAttempts;
+      // If correct matches, shortest time wins
       return a.totalTimeMs - b.totalTimeMs;
     });
 
@@ -564,7 +564,7 @@ Page({
 
     if (won) {
       newState = 'won';
-    } else if (newGuesses.length >= MAX_GUESSES) {
+    } else if ((!this.data.roomId || this.data.totalRounds === 0) && newGuesses.length >= MAX_GUESSES) {
       newState = 'lost';
     }
 
@@ -615,9 +615,9 @@ Page({
     };
 
     if (totalRounds > 0) {
-      if (won || isTimeout || guessesCount >= MAX_GUESSES) {
+      if (won || isTimeout) {
         const timeSpentMs = roundStartTime ? (Date.now() - parseInt(roundStartTime)) : 0;
-        const cappedTime = timeSpentMs > 60000 ? 60000 : timeSpentMs;
+        const cappedTime = timeSpentMs > 120000 ? 120000 : timeSpentMs;
 
         updateData[`players.${myId}.scores`] = _.push([{
           round: currentRound,
@@ -626,7 +626,7 @@ Page({
           timeMs: cappedTime
         }]);
         updateData[`players.${myId}.totalCorrect`] = _.inc(won ? 1 : 0);
-        updateData[`players.${myId}.totalAttempts`] = _.inc(guessesCount);
+        updateData[`players.${myId}.totalAttempts`] = _.inc(guessesCount); // Just for stats
         updateData[`players.${myId}.totalTimeMs`] = _.inc(cappedTime);
       }
     } else {

@@ -39,7 +39,7 @@ Page({
             const { players } = require('../../utils/players.js');
             const targetIds = [];
             let availablePlayers = [...players];
-            for (let i = 0; i < 6; i++) {
+            for (let i = 0; i < 8; i++) {
                 if (availablePlayers.length === 0) break;
                 const rIdx = Math.floor(Math.random() * availablePlayers.length);
                 targetIds.push(availablePlayers[rIdx].id);
