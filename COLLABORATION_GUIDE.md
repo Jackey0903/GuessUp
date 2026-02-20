@@ -43,7 +43,7 @@
 
 1. 打开 **GitHub Desktop**。
 2. 点击左上角的 `File` -> `Clone repository...`。
-3. 在弹出的窗口选 `GitHub.com` 标签，找到 `GuessUp-MiniProgram`。
+3. 在弹出的窗口选 `GitHub.com` 标签，找到 `Jackey0903/GuessUp`。
 4. 在下方的 `Local Path` 选一个你电脑上存放代码的文件夹。最后点击 `Clone`。
 
 ---
