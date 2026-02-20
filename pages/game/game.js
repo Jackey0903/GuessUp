@@ -47,7 +47,8 @@ Page({
     _notifiedWinners: {},
     _schedulingNextRound: false,
     filterUsesLeft: 3,
-    filtersUsedThisRound: false
+    filtersUsedThisRound: false,
+    config: null
   },
 
   onUnload() {
@@ -145,10 +146,12 @@ Page({
         currentRound: currentRound,
         roundStartTime: roomData.roundStartTime || null,
         roundScoreSubmitted: false,
+        roundScoreSubmitted: false,
         leaderboard: [],
         _notifiedWinners: {},
         _schedulingNextRound: false,
-        filterUsesLeft: 3,
+        config: roomData.config || { rounds: 4, guesses: 6, radars: 3, time: 120 },
+        filterUsesLeft: roomData.config ? roomData.config.radars : 3,
         filtersUsedThisRound: false
       });
 
@@ -256,7 +259,11 @@ Page({
 
   startTimer(startTime) {
     this.stopTimer();
-    const duration = 120; // 120 seconds per round
+    const duration = this.data.config ? this.data.config.time : 120;
+
+    // If time is 999, unlimited time, hide formatting later or just let clock tick up
+    // But conceptually here we just set a very high duration or handle it specially
+    if (duration === 999) return;
 
     const updateTimer = () => {
       const start = parseInt(startTime);
@@ -366,6 +373,7 @@ Page({
       roundScoreSubmitted: false,
       _notifiedWinners: {},
       _schedulingNextRound: false,
+      filterUsesLeft: this.data.config ? this.data.config.radars : 3,
       filtersUsedThisRound: false
     });
 
@@ -629,7 +637,7 @@ Page({
     const won = player.name === target.name;
     let newState = 'playing';
 
-    const currentMaxGuesses = (this.data.roomId && this.data.totalRounds > 0) ? 6 : MAX_GUESSES;
+    const currentMaxGuesses = (this.data.roomId && this.data.totalRounds > 0 && this.data.config) ? this.data.config.guesses : MAX_GUESSES;
 
     if (won) {
       newState = 'won';
@@ -684,9 +692,12 @@ Page({
     };
 
     if (totalRounds > 0) {
-      if (won || isTimeout || guessesCount >= 6) {
+      const currentMaxGuesses = this.data.config ? this.data.config.guesses : 6;
+      const roundTimeLimitMs = this.data.config ? this.data.config.time * 1000 : 120000;
+
+      if (won || isTimeout || guessesCount >= currentMaxGuesses) {
         const timeSpentMs = roundStartTime ? (Date.now() - parseInt(roundStartTime)) : 0;
-        const cappedTime = timeSpentMs > 120000 ? 120000 : timeSpentMs;
+        const cappedTime = timeSpentMs > roundTimeLimitMs ? roundTimeLimitMs : timeSpentMs;
 
         updateData[`players.${myId}.scores`] = _.push([{
           round: currentRound,

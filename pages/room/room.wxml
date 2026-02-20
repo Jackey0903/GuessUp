@@ -14,6 +14,49 @@
       <text class="label">房间号</text>
       <text class="value">{{roomId}}</text>
     </view>
+
+    <!-- Room Configurations -->
+    <view class="room-rules glass-panel">
+      <!-- Host View -->
+      <view class="rules-host" wx:if="{{isHost}}">
+        <view class="rule-title">房间规则设置</view>
+        <view class="rule-item">
+          <text class="rule-label">题目数量</text>
+          <picker bindchange="onConfigChange" data-param="rounds" value="{{configIndexes.rounds}}" range="{{configOptions.rounds}}" range-key="label">
+            <view class="rule-picker">{{configOptions.rounds[configIndexes.rounds].label}} ▼</view>
+          </picker>
+        </view>
+        <view class="rule-item">
+          <text class="rule-label">猜测上限</text>
+          <picker bindchange="onConfigChange" data-param="guesses" value="{{configIndexes.guesses}}" range="{{configOptions.guesses}}" range-key="label">
+            <view class="rule-picker">{{configOptions.guesses[configIndexes.guesses].label}} ▼</view>
+          </picker>
+        </view>
+        <view class="rule-item">
+          <text class="rule-label">雷达次数</text>
+          <picker bindchange="onConfigChange" data-param="radars" value="{{configIndexes.radars}}" range="{{configOptions.radars}}" range-key="label">
+            <view class="rule-picker">{{configOptions.radars[configIndexes.radars].label}} ▼</view>
+          </picker>
+        </view>
+        <view class="rule-item">
+          <text class="rule-label">单题限时</text>
+          <picker bindchange="onConfigChange" data-param="time" value="{{configIndexes.time}}" range="{{configOptions.time}}" range-key="label">
+            <view class="rule-picker">{{configOptions.time[configIndexes.time].label}} ▼</view>
+          </picker>
+        </view>
+      </view>
+
+      <!-- Guest View -->
+      <view class="rules-guest" wx:else>
+        <view class="rule-title">房间规则</view>
+        <view class="rule-tags">
+          <text class="rule-tag">{{config.rounds}}题</text>
+          <text class="rule-tag">{{config.guesses === 999 ? '无限盲猜' : config.guesses + '次机会'}}</text>
+          <text class="rule-tag">{{config.radars === 999 ? '无限雷达' : (config.radars === 0 ? '禁用雷达' : config.radars + '次雷达')}}</text>
+          <text class="rule-tag">{{config.time === 999 ? '无时间限制' : config.time + '秒'}}</text>
+        </view>
+      </view>
+    </view>
     
     <!-- Player avatars grid -->
     <view class="players-grid">

@@ -8,8 +8,23 @@ Page({
         playersArray: [],
         roomState: 'waiting',
         statusText: '正在创建房间...',
+        房间初始状态: '正在创建房间...',
+        statusText: '正在创建房间...',
         watcher: null,
-        _realDbId: ''
+        _realDbId: '',
+        configOptions: {
+            rounds: [{ label: '4题', value: 4 }, { label: '6题', value: 6 }, { label: '8题', value: 8 }, { label: '10题', value: 10 }],
+            guesses: [{ label: '5次', value: 5 }, { label: '6次', value: 6 }, { label: '8次', value: 8 }, { label: '10次', value: 10 }, { label: '无限次', value: 999 }],
+            radars: [{ label: '禁用', value: 0 }, { label: '1次', value: 1 }, { label: '3次', value: 3 }, { label: '5次', value: 5 }, { label: '无限', value: 999 }],
+            time: [{ label: '60秒', value: 60 }, { label: '90秒', value: 90 }, { label: '120秒', value: 120 }, { label: '休闲(300s)', value: 300 }]
+        },
+        configIndexes: {
+            rounds: 0, // default 4
+            guesses: 1, // default 6
+            radars: 2, // default 3
+            time: 2 // default 120
+        },
+        config: { rounds: 4, guesses: 6, radars: 3, time: 120 }
     },
 
     onLoad(options) {
@@ -39,7 +54,9 @@ Page({
             const { players } = require('../../utils/players.js');
             const targetIds = [];
             let availablePlayers = [...players];
-            for (let i = 0; i < 4; i++) {
+            // Get random targets based on current selected totalRounds
+            const numRounds = this.data.config.rounds;
+            for (let i = 0; i < numRounds; i++) {
                 if (availablePlayers.length === 0) break;
                 const rIdx = Math.floor(Math.random() * availablePlayers.length);
                 targetIds.push(availablePlayers[rIdx].id);
@@ -58,6 +75,7 @@ Page({
                     currentRound: 1,
                     totalRounds: targetIds.length,
                     capacity: 4,
+                    config: this.data.config,
                     players: {
                         [myId]: {
                             name: '房主',
@@ -165,7 +183,8 @@ Page({
 
                 this.setData({
                     playersArray: playersArr,
-                    roomState: roomData.state
+                    roomState: roomData.state,
+                    config: roomData.config || this.data.config
                 });
 
                 if (roomData.state === 'round_1') {
@@ -186,6 +205,30 @@ Page({
         });
 
         this.setData({ watcher });
+    },
+
+    async onConfigChange(e) {
+        if (!this.data.isHost) return;
+        const param = e.currentTarget.dataset.param;
+        const index = e.detail.value;
+        const val = this.data.configOptions[param][index].value;
+
+        // Optimistically update UI
+        const newIndexes = { ...this.data.configIndexes, [param]: index };
+        const newConfig = { ...this.data.config, [param]: val };
+
+        this.setData({
+            configIndexes: newIndexes,
+            config: newConfig
+        });
+
+        if (this.data._realDbId && param !== 'rounds') {
+            await db.collection('rooms').doc(this.data._realDbId).update({
+                data: {
+                    [`config.${param}`]: val
+                }
+            });
+        }
     },
 
     async startGame() {

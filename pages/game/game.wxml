@@ -13,10 +13,10 @@
     <view class="tracker-row" wx:for="{{opponents}}" wx:key="id">
       <view class="tracker-info">
         <text class="tracker-name">{{item.name}}</text>
-        <text class="tracker-value">{{totalRounds > 0 ? item.guesses + '/6' : item.guesses + '/8'}}</text>
+        <text class="tracker-value">{{totalRounds > 0 ? (config.guesses === 999 ? item.guesses + '/∞' : item.guesses + '/' + config.guesses) : item.guesses + '/8'}}</text>
       </view>
       <view class="progress-bar">
-        <view class="progress-fill" style="width: {{totalRounds > 0 ? (item.guesses >= 6 ? 100 : (item.guesses / 6) * 100) : (item.guesses / 8) * 100}}%"></view>
+        <view class="progress-fill" style="width: {{totalRounds > 0 ? (config.guesses === 999 ? (item.guesses > 0 ? 30 : 0) : (item.guesses >= config.guesses ? 100 : (item.guesses / config.guesses) * 100)) : (item.guesses / 8) * 100}}%"></view>
       </view>
     </view>
   </view>
@@ -46,7 +46,7 @@
 
       <view class="filter-controls-right" style="margin-left: auto; display: flex; align-items: center; gap: 16rpx;">
         <view wx:if="{{totalRounds > 0}}" style="font-size: 20rpx; color: var(--muted); padding-top: 4rpx;">
-          雷达剩余: <text style="color: {{filterUsesLeft > 0 ? 'var(--accent)' : 'var(--bad)'}}; font-weight: bold;">{{filterUsesLeft}}</text>
+          雷达剩余: <text style="color: {{filterUsesLeft > 0 ? 'var(--accent)' : 'var(--bad)'}}; font-weight: bold;">{{config.radars === 999 ? '∞' : filterUsesLeft}}</text>
         </view>
         <view 
           class="filter-reset-btn" 
@@ -67,7 +67,7 @@
         bindinput="onInput"
         placeholder-style="color: var(--muted); font-size: 28rpx;"
       />
-      <view class="guess-count">{{guesses.length}} / {{totalRounds > 0 ? 6 : 8}}</view>
+      <view class="guess-count">{{guesses.length}} / {{totalRounds > 0 ? (config.guesses === 999 ? '∞' : config.guesses) : 8}}</view>
     </view>
     <scroll-view scroll-y class="search-results" wx:if="{{inputVal || selectedConf || selectedTeam || selectedPos}}">
       <view class="search-item empty-state" wx:if="{{searchResults.length === 0}}" style="justify-content: center;">
