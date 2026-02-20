@@ -13,10 +13,10 @@
     <view class="tracker-row" wx:for="{{opponents}}" wx:key="id">
       <view class="tracker-info">
         <text class="tracker-name">{{item.name}}</text>
-        <text class="tracker-value">{{totalRounds > 0 ? item.guesses + ' 次' : item.guesses + '/8'}}</text>
+        <text class="tracker-value">{{totalRounds > 0 ? item.guesses + '/10' : item.guesses + '/8'}}</text>
       </view>
       <view class="progress-bar">
-        <view class="progress-fill" style="width: {{item.guesses >= 8 ? 100 : (item.guesses / 8) * 100}}%"></view>
+        <view class="progress-fill" style="width: {{totalRounds > 0 ? (item.guesses >= 10 ? 100 : (item.guesses / 10) * 100) : (item.guesses / 8) * 100}}%"></view>
       </view>
     </view>
   </view>

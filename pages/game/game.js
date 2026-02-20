@@ -562,9 +562,11 @@ Page({
     const won = player.name === target.name;
     let newState = 'playing';
 
+    const currentMaxGuesses = (this.data.roomId && this.data.totalRounds > 0) ? 10 : MAX_GUESSES;
+
     if (won) {
       newState = 'won';
-    } else if ((!this.data.roomId || this.data.totalRounds === 0) && newGuesses.length >= MAX_GUESSES) {
+    } else if (newGuesses.length >= currentMaxGuesses) {
       newState = 'lost';
     }
 
@@ -615,7 +617,7 @@ Page({
     };
 
     if (totalRounds > 0) {
-      if (won || isTimeout) {
+      if (won || isTimeout || guessesCount >= 10) {
         const timeSpentMs = roundStartTime ? (Date.now() - parseInt(roundStartTime)) : 0;
         const cappedTime = timeSpentMs > 120000 ? 120000 : timeSpentMs;
 
