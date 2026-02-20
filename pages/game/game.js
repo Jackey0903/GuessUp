@@ -14,8 +14,10 @@ Page({
 
     // Filter Data
     conferences: [],
+    allTeams: [],
     teams: [],
     positions: [],
+    teamConfMap: {},
     confIndex: 0,
     teamIndex: 0,
     posIndex: 0,
@@ -51,16 +53,24 @@ Page({
     const confs = new Set();
     const teamsList = new Set();
     const posList = new Set();
+    const teamConfMap = {};
 
     this.data.players.forEach(p => {
       if (p.conf_cn) confs.add(p.conf_cn);
-      if (p.team_cn) teamsList.add(p.team_cn);
+      if (p.team_cn) {
+        teamsList.add(p.team_cn);
+        if (p.conf_cn) teamConfMap[p.team_cn] = p.conf_cn;
+      }
       if (p.pos_cn) posList.add(p.pos_cn);
     });
 
+    const allTeams = Array.from(teamsList).sort();
+
     this.setData({
       conferences: Array.from(confs).sort(),
-      teams: Array.from(teamsList).sort(),
+      allTeams: allTeams,
+      teams: allTeams,
+      teamConfMap: teamConfMap,
       positions: Array.from(posList).sort()
     });
   },
@@ -189,19 +199,48 @@ Page({
 
   onConfChange(e) {
     const idx = e.detail.value;
+    const selectedConf = this.data.conferences[idx];
+
+    // Filter teams based on selected conference
+    const filteredTeams = this.data.allTeams.filter(t => this.data.teamConfMap[t] === selectedConf);
+
+    // Check if current selectedTeam is still valid
+    let newSelectedTeam = this.data.selectedTeam;
+    if (newSelectedTeam && this.data.teamConfMap[newSelectedTeam] !== selectedConf) {
+      newSelectedTeam = '';
+    }
+
     this.setData({
       confIndex: idx,
-      selectedConf: this.data.conferences[idx]
+      selectedConf: selectedConf,
+      teams: filteredTeams,
+      selectedTeam: newSelectedTeam
     });
-    // Optional: Filter possible teams based on conference? Keep it simple for now.
     this.updateSearchResults();
   },
 
   onTeamChange(e) {
     const idx = e.detail.value;
+    const selectedTeam = this.data.teams[idx];
+    const targetConf = this.data.teamConfMap[selectedTeam];
+
+    let newSelectedConf = this.data.selectedConf;
+    let newConfIndex = this.data.confIndex;
+
+    // Auto-select conference if necessary
+    if (targetConf && targetConf !== newSelectedConf) {
+      newSelectedConf = targetConf;
+      newConfIndex = this.data.conferences.indexOf(targetConf);
+    }
+
+    const filteredTeams = this.data.allTeams.filter(t => this.data.teamConfMap[t] === newSelectedConf);
+
     this.setData({
-      teamIndex: idx,
-      selectedTeam: this.data.teams[idx]
+      teamIndex: filteredTeams.indexOf(selectedTeam),
+      selectedTeam: selectedTeam,
+      selectedConf: newSelectedConf,
+      confIndex: newConfIndex,
+      teams: filteredTeams
     });
     this.updateSearchResults();
   },
@@ -220,7 +259,8 @@ Page({
       selectedConf: '',
       selectedTeam: '',
       selectedPos: '',
-      inputVal: ''
+      inputVal: '',
+      teams: this.data.allTeams
     });
     this.updateSearchResults();
   },
