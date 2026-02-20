@@ -185,7 +185,7 @@ Page({
             };
         }
         return {
-            title: '吾猜(湖冠版) - 每天一位神秘NBA球星',
+            title: '吾猜(哈登冠名版) - 每天一位神秘NBA球星',
             path: '/pages/index/index'
         };
     },
