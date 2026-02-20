@@ -57,8 +57,13 @@
           <text class="legend-text">绿色代表完全匹配。</text>
         </view>
         <view class="legend-row">
-          <view class="cell partial">F</view>
-          <text class="legend-text">黄色代表部分匹配（如：猜后卫，实际是双能卫；或数字误差之内）。</text>
+          <view class="cell partial" style="align-self: flex-start;">F</view>
+          <view class="legend-text-group">
+            <text class="legend-text">黄色代表部分或接近匹配。具体判断规则：</text>
+            <text class="legend-sub-text">• 【身高】误差在 5cm 以内</text>
+            <text class="legend-sub-text">• 【年龄】相差在 2岁 以内</text>
+            <text class="legend-sub-text">• 【号码】相差在 2个 号内</text>
+          </view>
         </view>
         <view class="legend-row">
           <view class="cell incorrect">C</view>
