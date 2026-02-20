@@ -43,7 +43,9 @@ Page({
     timeRemaining: 60,
     timeFormatted: '00:60',
     timerId: null,
-    leaderboard: []
+    leaderboard: [],
+    _notifiedWinners: {},
+    _schedulingNextRound: false
   },
 
   onUnload() {
@@ -141,7 +143,9 @@ Page({
         currentRound: currentRound,
         roundStartTime: roomData.roundStartTime || null,
         roundScoreSubmitted: false,
-        leaderboard: []
+        leaderboard: [],
+        _notifiedWinners: {},
+        _schedulingNextRound: false
       });
 
       wx.hideLoading();
@@ -162,14 +166,35 @@ Page({
           const opps = [];
           let someoneWon = false;
           let winnerName = '';
+          let allDone = true;
+          const notifiedWinners = this.data._notifiedWinners || {};
 
           for (const pid in playersObj) {
+            const pScores = playersObj[pid].scores || [];
+            const isDone = pScores.some(s => s.round === this.data.currentRound);
+            if (!isDone) {
+              allDone = false;
+            }
+
             if (pid === myId) continue;
+
             opps.push({
               id: pid,
               name: playersObj[pid].name || '对手',
               guesses: playersObj[pid].guesses || 0
             });
+
+            if (isDone) {
+              const currentScore = pScores.find(s => s.round === this.data.currentRound);
+              if (currentScore && currentScore.guessed && !notifiedWinners[pid]) {
+                notifiedWinners[pid] = true;
+                this.setData({ _notifiedWinners: notifiedWinners });
+                if (this.data.gameState === 'playing') {
+                  wx.showToast({ title: `${playersObj[pid].name} 猜中了！`, icon: 'none', duration: 3000 });
+                  wx.vibrateLong();
+                }
+              }
+            }
           }
 
           if (this.data.totalRounds > 0) {
@@ -177,7 +202,12 @@ Page({
             if (currentRoom.state === 'finished' && this.data.gameState !== 'finished') {
               this.showFinalScoreboard(currentRoom);
             } else if (currentRoom.currentRound > this.data.currentRound) {
+              this.setData({ _schedulingNextRound: false });
               this.startNewRound(currentRoom);
+            } else if (allDone && this.data.isHost && currentRoom.state === `round_${this.data.currentRound}`) {
+              if (!this.data._schedulingNextRound) {
+                this.scheduleNextRound(3000);
+              }
             }
             this.setData({ opponents: opps });
           } else {
@@ -274,11 +304,16 @@ Page({
     }
 
     if (this.data.isHost && this.data.roomId) {
-      this.scheduleNextRound();
+      if (!this.data._schedulingNextRound) {
+        this.scheduleNextRound(3000);
+      }
     }
   },
 
-  scheduleNextRound() {
+  scheduleNextRound(delay = 4000) {
+    if (this.data._schedulingNextRound) return;
+    this.setData({ _schedulingNextRound: true });
+
     setTimeout(() => {
       const db = wx.cloud.database();
       const { roomId, currentRound, totalRounds } = this.data;
@@ -297,7 +332,7 @@ Page({
           }
         });
       }
-    }, 4000); // 4 seconds break
+    }, delay);
   },
 
   startNewRound(roomData) {
@@ -324,7 +359,9 @@ Page({
       winnerName: '',
       currentRound: roomData.currentRound,
       roundStartTime: roomData.roundStartTime || Date.now(),
-      roundScoreSubmitted: false
+      roundScoreSubmitted: false,
+      _notifiedWinners: {},
+      _schedulingNextRound: false
     });
 
     this.startTimer(this.data.roundStartTime);
