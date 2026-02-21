@@ -27,20 +27,44 @@ Page({
 
     // Multiplayer fields
     roomId: null,
-    role: null, // 'host' or 'guest'
-    opponentGuesses: 0,
-    opponentWon: false,
-    watcher: null
+    // Multiplayer fields
+    roomId: null,
+    isHost: false,
+    role: null, // legacy
+    opponents: [],
+    winnerName: '',
+    watcher: null,
+
+    // Multi-Round fields
+    totalRounds: 0,
+    currentRound: 1,
+    roundStartTime: 0,
+    roundScoreSubmitted: false,
+    timeRemaining: 60,
+    timeFormatted: '00:60',
+    timerId: null,
+    leaderboard: [],
+    _notifiedWinners: {},
+    _schedulingNextRound: false,
+    filterUsesLeft: 3,
+    filtersUsedThisRound: false,
+    config: null
+  },
+
+  onUnload() {
+    this.stopTimer();
+    if (this.data.watcher) {
+      this.data.watcher.close();
+    }
   },
 
   onLoad(options) {
     this.setData({ players });
     this.initFilters();
 
-    if (options.roomId && options.role) {
+    if (options.roomId) {
       this.setData({
-        roomId: options.roomId,
-        role: options.role
+        roomId: options.roomId
       });
       this.initMultiplayer();
     } else {
@@ -83,7 +107,9 @@ Page({
 
   async initMultiplayer() {
     const db = wx.cloud.database();
-    const { roomId, role } = this.data;
+    const app = getApp();
+    const myId = app.globalData.playerId;
+    const { roomId } = this.data;
 
     wx.showLoading({ title: '加载房间数据...', mask: true });
 
@@ -92,7 +118,11 @@ Page({
       const res = await db.collection('rooms').doc(roomId).get();
       const roomData = res.data;
 
-      const target = this.data.players.find(p => p.id === roomData.targetId);
+      const currentRound = roomData.currentRound || 1;
+      const targetId = roomData.targetIds ? roomData.targetIds[currentRound - 1] : roomData.targetId;
+      const target = this.data.players.find(p => p.id === targetId);
+      const isHost = roomData.players && roomData.players[myId] ? roomData.players[myId].isHost : false;
+
       if (target) {
         const parts = target.name.split(' ');
         if (parts.length >= 2) {
@@ -103,37 +133,107 @@ Page({
       }
 
       this.setData({
+        isHost: isHost,
         target: target,
         guesses: [],
         inputVal: '',
         searchResults: [],
         gameState: 'playing',
         showModal: false,
-        opponentGuesses: 0,
-        opponentWon: false
+        opponents: [],
+        winnerName: '',
+        totalRounds: roomData.totalRounds || 0,
+        currentRound: currentRound,
+        roundStartTime: roomData.roundStartTime || null,
+        roundScoreSubmitted: false,
+        roundScoreSubmitted: false,
+        leaderboard: [],
+        _notifiedWinners: {},
+        _schedulingNextRound: false,
+        config: roomData.config || { rounds: 4, guesses: 6, radars: 3, time: 120 },
+        filterUsesLeft: roomData.config ? roomData.config.radars : 3,
+        filtersUsedThisRound: false
       });
 
       wx.hideLoading();
+
+      if (this.data.totalRounds > 0 && this.data.roundStartTime) {
+        this.startTimer(this.data.roundStartTime);
+      }
 
       // 2. Start watching for opponent updates
       const watcher = db.collection('rooms').doc(roomId).watch({
         onChange: (snapshot) => {
           if (snapshot.docs.length === 0) return;
           const currentRoom = snapshot.docs[0];
+          const app = getApp();
+          const myId = app.globalData.playerId;
 
-          // Determine opponent's stats
-          const oppGuesses = role === 'host' ? currentRoom.guestGuesses : currentRoom.hostGuesses;
-          this.setData({ opponentGuesses: oppGuesses || 0 });
+          const playersObj = currentRoom.players || {};
+          const opps = [];
+          let someoneWon = false;
+          let winnerName = '';
+          let allDone = true;
+          const notifiedWinners = this.data._notifiedWinners || {};
 
-          // Check if opponent won
-          if (currentRoom.winner && currentRoom.winner !== role && this.data.gameState === 'playing') {
-            this.setData({
-              gameState: 'lost',
-              opponentWon: true,
-              showModal: true
+          for (const pid in playersObj) {
+            const pScores = playersObj[pid].scores || [];
+            const isDone = pScores.some(s => s.round === this.data.currentRound);
+            if (!isDone) {
+              allDone = false;
+            }
+
+            if (pid === myId) continue;
+
+            opps.push({
+              id: pid,
+              name: playersObj[pid].name || '对手',
+              guesses: playersObj[pid].guesses || 0
             });
-            wx.vibrateLong();
-            wx.showToast({ title: '对手率先猜中了！', icon: 'none', duration: 3000 });
+
+            if (isDone) {
+              const currentScore = pScores.find(s => s.round === this.data.currentRound);
+              if (currentScore && currentScore.guessed && !notifiedWinners[pid]) {
+                notifiedWinners[pid] = true;
+                this.setData({ _notifiedWinners: notifiedWinners });
+                if (this.data.gameState === 'playing') {
+                  wx.showToast({ title: `${playersObj[pid].name} 猜中了！`, icon: 'none', duration: 3000 });
+                  wx.vibrateLong();
+                }
+              }
+            }
+          }
+
+          if (this.data.totalRounds > 0) {
+            // MULTI-ROUND MODE
+            if (currentRoom.state === 'finished' && this.data.gameState !== 'finished') {
+              this.showFinalScoreboard(currentRoom);
+            } else if (currentRoom.currentRound > this.data.currentRound) {
+              this.setData({ _schedulingNextRound: false });
+              this.startNewRound(currentRoom);
+            } else if (allDone && this.data.isHost && currentRoom.state === `round_${this.data.currentRound}`) {
+              if (!this.data._schedulingNextRound) {
+                this.scheduleNextRound(3000);
+              }
+            }
+            this.setData({ opponents: opps });
+          } else {
+            // SINGLE-ROUND LEGACY MODE
+            if (currentRoom.winner && currentRoom.winner !== myId && this.data.gameState === 'playing') {
+              someoneWon = true;
+              winnerName = playersObj[currentRoom.winner]?.name || '对手';
+            }
+            this.setData({ opponents: opps });
+
+            if (someoneWon) {
+              this.setData({
+                gameState: 'lost',
+                showModal: true,
+                winnerName: winnerName
+              });
+              wx.vibrateLong();
+              wx.showToast({ title: `${winnerName} 率先猜中了！`, icon: 'none', duration: 3000 });
+            }
           }
         },
         onError: (err) => {
@@ -150,19 +250,172 @@ Page({
     }
   },
 
-  startNewGame() {
-    // Daily Mode Implementation
-    // Use current date to pick a player index
-    const today = new Date();
-    const dateStr = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
-
-    // Simple hash of standard date string to index
-    let hash = 0;
-    for (let i = 0; i < dateStr.length; i++) {
-      hash = ((hash << 5) - hash) + dateStr.charCodeAt(i);
-      hash |= 0;
+  stopTimer() {
+    if (this.data.timerId) {
+      clearInterval(this.data.timerId);
+      this.setData({ timerId: null });
     }
-    const dailyIndex = Math.abs(hash) % this.data.players.length;
+  },
+
+  startTimer(startTime) {
+    this.stopTimer();
+    const duration = this.data.config ? this.data.config.time : 120;
+
+    // If time is 999, unlimited time, hide formatting later or just let clock tick up
+    // But conceptually here we just set a very high duration or handle it specially
+    if (duration === 999) return;
+
+    const updateTimer = () => {
+      const start = parseInt(startTime);
+      const now = Date.now();
+      const elapsed = Math.floor((now - start) / 1000);
+      let rem = duration - elapsed;
+
+      if (rem <= 0) {
+        rem = 0;
+        this.stopTimer();
+        this.handleRoundTimeout();
+      }
+
+      // Format time remaining MM:SS
+      const m = Math.floor(rem / 60).toString().padStart(2, '0');
+      const s = (rem % 60).toString().padStart(2, '0');
+
+      this.setData({
+        timeRemaining: rem,
+        timeFormatted: `${m}:${s}`
+      });
+    };
+
+    // run once immediately
+    updateTimer();
+    const id = setInterval(updateTimer, 1000);
+    this.setData({ timerId: id });
+  },
+
+  handleRoundTimeout() {
+    if (this.data.gameState !== 'playing') {
+      if (this.data.isHost && this.data.roomId) {
+        this.scheduleNextRound();
+      }
+      return;
+    }
+
+    this.setData({
+      gameState: 'lost',
+      showModal: true,
+      winnerName: '时间到！'
+    });
+    wx.vibrateLong();
+
+    // Automatically submit score as failed if we hadn't already won
+    if (this.data.roomId && this.data.totalRounds > 0 && !this.data.roundScoreSubmitted) {
+      this.syncToCloud(this.data.guesses.length, false, true);
+      this.setData({ roundScoreSubmitted: true });
+    }
+
+    if (this.data.isHost && this.data.roomId) {
+      if (!this.data._schedulingNextRound) {
+        this.scheduleNextRound(3000);
+      }
+    }
+  },
+
+  scheduleNextRound(delay = 4000) {
+    if (this.data._schedulingNextRound) return;
+    this.setData({ _schedulingNextRound: true });
+
+    setTimeout(() => {
+      const db = wx.cloud.database();
+      const { roomId, currentRound, totalRounds } = this.data;
+      const nextRound = currentRound + 1;
+
+      if (nextRound > totalRounds) {
+        db.collection('rooms').doc(roomId).update({
+          data: { state: 'finished' }
+        });
+      } else {
+        db.collection('rooms').doc(roomId).update({
+          data: {
+            state: 'round_' + nextRound,
+            currentRound: nextRound,
+            roundStartTime: Date.now()
+          }
+        });
+      }
+    }, delay);
+  },
+
+  startNewRound(roomData) {
+    this.stopTimer();
+    const targetId = roomData.targetIds[roomData.currentRound - 1];
+    const target = this.data.players.find(p => p.id === targetId);
+
+    if (target) {
+      const parts = target.name.split(' ');
+      if (parts.length >= 2) {
+        target.initials = parts[0][0] + parts[1][0];
+      } else {
+        target.initials = target.name.substring(0, 2).toUpperCase();
+      }
+    }
+
+    this.setData({
+      target: target,
+      guesses: [],
+      inputVal: '',
+      searchResults: [],
+      gameState: 'playing',
+      showModal: false,
+      winnerName: '',
+      currentRound: roomData.currentRound,
+      roundStartTime: roomData.roundStartTime || Date.now(),
+      roundScoreSubmitted: false,
+      _notifiedWinners: {},
+      _schedulingNextRound: false,
+      filterUsesLeft: this.data.config ? this.data.config.radars : 3,
+      filtersUsedThisRound: false
+    });
+
+    this.startTimer(this.data.roundStartTime);
+    wx.vibrateShort({ type: 'medium' });
+    wx.showToast({ title: '新的一轮开始了！', icon: 'none' });
+  },
+
+  showFinalScoreboard(roomData) {
+    this.stopTimer();
+    const playersObj = roomData.players || {};
+    const lb = [];
+    for (const k in playersObj) {
+      lb.push({
+        id: k,
+        name: playersObj[k].name || '玩家',
+        totalCorrect: playersObj[k].totalCorrect || 0,
+        totalAttempts: playersObj[k].totalAttempts || 0,
+        totalTimeMs: playersObj[k].totalTimeMs || 0,
+        timeSecs: ((playersObj[k].totalTimeMs || 0) / 1000).toFixed(1)
+      });
+    }
+
+    // Sort
+    lb.sort((a, b) => {
+      if (b.totalCorrect !== a.totalCorrect) return b.totalCorrect - a.totalCorrect;
+      // If correct matches, shortest time wins
+      return a.totalTimeMs - b.totalTimeMs;
+    });
+
+    this.setData({
+      gameState: 'finished',
+      showModal: false,
+      leaderboard: lb
+    });
+    wx.vibrateLong();
+  },
+
+  startNewGame() {
+    // Random Mode Implementation
+    // Pick a purely random player every time so the user can play continuously
+    const dailyIndex = Math.floor(Math.random() * this.data.players.length);
 
     // For testing/dev, maybe we want random? 
     // User requested "Sigdle" style which is Daily.
@@ -188,7 +441,8 @@ Page({
       gameState: 'playing',
       gameOver: false,
       gameWon: false,
-      showModal: false
+      showModal: false,
+      filtersUsedThisRound: false
     });
   },
 
@@ -197,7 +451,27 @@ Page({
     this.updateSearchResults();
   },
 
+  consumeFilter() {
+    if (!this.data.roomId || this.data.totalRounds === 0) return true; // Single player is unlimited
+
+    if (this.data.filtersUsedThisRound) return true; // Already unlocked for this round
+
+    if (this.data.filterUsesLeft <= 0) {
+      wx.showToast({ title: '雷达次数已用尽！', icon: 'error' });
+      return false;
+    }
+
+    this.setData({
+      filtersUsedThisRound: true,
+      filterUsesLeft: this.data.filterUsesLeft - 1
+    });
+
+    wx.showToast({ title: `雷达已激活！剩余 ${this.data.filterUsesLeft} 次`, icon: 'none' });
+    return true;
+  },
+
   onConfChange(e) {
+    if (!this.consumeFilter()) return;
     const idx = e.detail.value;
     const selectedConf = this.data.conferences[idx];
 
@@ -220,6 +494,7 @@ Page({
   },
 
   onTeamChange(e) {
+    if (!this.consumeFilter()) return;
     const idx = e.detail.value;
     const selectedTeam = this.data.teams[idx];
     const targetConf = this.data.teamConfMap[selectedTeam];
@@ -246,6 +521,7 @@ Page({
   },
 
   onPosChange(e) {
+    if (!this.consumeFilter()) return;
     const idx = e.detail.value;
     this.setData({
       posIndex: idx,
@@ -329,9 +605,11 @@ Page({
         value: player.name,
         status: player.name === target.name ? 'correct' : 'incorrect'
       },
-      team: { value: player.team_cn, status: player.team === target.team ? 'correct' : 'incorrect' },
+      team: {
+        value: player.team_cn,
+        status: player.team === target.team ? 'correct' : (player.div === target.div ? 'partial' : 'incorrect')
+      },
       conf: { value: player.conf_cn, status: player.conf === target.conf ? 'correct' : 'incorrect' },
-      div: { value: player.div_cn, status: player.div === target.div ? 'correct' : 'incorrect' },
       pos: {
         value: player.pos_cn,
         status: player.pos === target.pos ? 'correct' : (
@@ -359,9 +637,11 @@ Page({
     const won = player.name === target.name;
     let newState = 'playing';
 
+    const currentMaxGuesses = (this.data.roomId && this.data.totalRounds > 0 && this.data.config) ? this.data.config.guesses : MAX_GUESSES;
+
     if (won) {
       newState = 'won';
-    } else if (newGuesses.length >= MAX_GUESSES) {
+    } else if (newGuesses.length >= currentMaxGuesses) {
       newState = 'lost';
     }
 
@@ -375,7 +655,12 @@ Page({
 
     // Multiplayer sync
     if (this.data.roomId) {
-      this.syncToCloud(newGuesses.length, won);
+      if (!this.data.roundScoreSubmitted) {
+        this.syncToCloud(newGuesses.length, won);
+        if (newState !== 'playing' && this.data.totalRounds > 0) {
+          this.setData({ roundScoreSubmitted: true });
+        }
+      }
     }
 
     if (newState !== 'playing') {
@@ -396,19 +681,38 @@ Page({
     }
   },
 
-  syncToCloud(guessesCount, won) {
+  syncToCloud(guessesCount, won, isTimeout = false) {
     const db = wx.cloud.database();
-    const { roomId, role } = this.data;
-    const updateData = {};
+    const _ = db.command;
+    const { roomId, currentRound, roundStartTime, totalRounds } = this.data;
+    const app = getApp();
+    const myId = app.globalData.playerId;
+    const updateData = {
+      [`players.${myId}.guesses`]: guessesCount
+    };
 
-    if (role === 'host') {
-      updateData.hostGuesses = guessesCount;
+    if (totalRounds > 0) {
+      const currentMaxGuesses = this.data.config ? this.data.config.guesses : 6;
+      const roundTimeLimitMs = this.data.config ? this.data.config.time * 1000 : 120000;
+
+      if (won || isTimeout || guessesCount >= currentMaxGuesses) {
+        const timeSpentMs = roundStartTime ? (Date.now() - parseInt(roundStartTime)) : 0;
+        const cappedTime = timeSpentMs > roundTimeLimitMs ? roundTimeLimitMs : timeSpentMs;
+
+        updateData[`players.${myId}.scores`] = _.push([{
+          round: currentRound,
+          guessed: won,
+          attempts: guessesCount,
+          timeMs: cappedTime
+        }]);
+        updateData[`players.${myId}.totalCorrect`] = _.inc(won ? 1 : 0);
+        updateData[`players.${myId}.totalAttempts`] = _.inc(guessesCount); // Just for stats
+        updateData[`players.${myId}.totalTimeMs`] = _.inc(cappedTime);
+      }
     } else {
-      updateData.guestGuesses = guessesCount;
-    }
-
-    if (won) {
-      updateData.winner = role;
+      if (won) {
+        updateData.winner = myId;
+      }
     }
 
     db.collection('rooms').doc(roomId).update({

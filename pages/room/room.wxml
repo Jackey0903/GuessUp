@@ -1,6 +1,6 @@
 <view class="container">
   <view class="header">
-    <text class="title">1v1 对战大厅</text>
+    <text class="title">多人联机大厅</text>
     <text class="subtitle">REAL-TIME MULTIPLAYER</text>
   </view>
 
@@ -14,45 +14,101 @@
       <text class="label">房间号</text>
       <text class="value">{{roomId}}</text>
     </view>
+
+    <!-- Room Configurations -->
+    <view class="room-rules glass-panel">
+      <!-- Host View -->
+      <view class="rules-host" wx:if="{{isHost}}">
+        <view class="rule-title">房间规则设置</view>
+        <view class="rule-item">
+          <text class="rule-label">题目数量</text>
+          <picker bindchange="onConfigChange" data-param="rounds" value="{{configIndexes.rounds}}" range="{{configOptions.rounds}}" range-key="label">
+            <view class="rule-picker">{{configOptions.rounds[configIndexes.rounds].label}} ▼</view>
+          </picker>
+        </view>
+        <view class="rule-item">
+          <text class="rule-label">猜测上限</text>
+          <picker bindchange="onConfigChange" data-param="guesses" value="{{configIndexes.guesses}}" range="{{configOptions.guesses}}" range-key="label">
+            <view class="rule-picker">{{configOptions.guesses[configIndexes.guesses].label}} ▼</view>
+          </picker>
+        </view>
+        <view class="rule-item">
+          <text class="rule-label">雷达次数</text>
+          <picker bindchange="onConfigChange" data-param="radars" value="{{configIndexes.radars}}" range="{{configOptions.radars}}" range-key="label">
+            <view class="rule-picker">{{configOptions.radars[configIndexes.radars].label}} ▼</view>
+          </picker>
+        </view>
+        <view class="rule-item">
+          <text class="rule-label">单题限时</text>
+          <picker bindchange="onConfigChange" data-param="time" value="{{configIndexes.time}}" range="{{configOptions.time}}" range-key="label">
+            <view class="rule-picker">{{configOptions.time[configIndexes.time].label}} ▼</view>
+          </picker>
+        </view>
+      </view>
+
+      <!-- Guest View -->
+      <view class="rules-guest" wx:else>
+        <view class="rule-title">房间规则</view>
+        <view class="rule-tags">
+          <text class="rule-tag">{{config.rounds}}题</text>
+          <text class="rule-tag">{{config.guesses === 999 ? '无限盲猜' : config.guesses + '次机会'}}</text>
+          <text class="rule-tag">{{config.radars === 999 ? '无限雷达' : (config.radars === 0 ? '禁用雷达' : config.radars + '次雷达')}}</text>
+          <text class="rule-tag">{{config.time === 999 ? '无时间限制' : config.time + '秒'}}</text>
+        </view>
+      </view>
+    </view>
     
-    <!-- Player avatars placeholder -->
-    <view class="players-container">
-      <view class="player-slot host-slot">
-        <view class="avatar">我</view>
-        <text class="name">房主</text>
+    <!-- Player avatars grid -->
+    <view class="players-grid">
+      <view class="player-slot {{item.isHost ? 'host-slot' : 'guest-slot joined'}}" wx:for="{{playersArray}}" wx:key="id">
+        <view class="avatar">{{item.name[0] || '?'}}</view>
+        <view class="name-badge">
+           <text class="name">{{item.name}}</text>
+           <text class="host-tag" wx:if="{{item.isHost}}">房主</text>
+        </view>
       </view>
       
-      <view class="vs">VS</view>
-      
-      <view class="player-slot guest-slot {{guestJoined ? 'joined' : 'waiting'}}">
-        <view class="avatar">{{guestJoined ? '敌' : '?'}}</view>
-        <text class="name">{{guestJoined ? '挑战者' : '等待加入...'}}</text>
+      <!-- Empty slots (pad to 4) -->
+      <view class="player-slot guest-slot waiting" wx:for="{{[1,2,3,4]}}" wx:key="*this" wx:if="{{index >= playersArray.length}}">
+        <view class="avatar">?</view>
+        <text class="name">等待加入</text>
       </view>
     </view>
   </view>
 
   <view class="actions">
-    <!-- Only host can invite -->
+    <!-- Host Start Game Button -->
     <button 
-      wx:if="{{isHost && !guestJoined && roomId}}" 
-      class="primary action-btn share-btn" 
+      wx:if="{{isHost && playersArray.length >= 2 && roomState === 'waiting'}}" 
+      class="primary action-btn start-game-btn" 
+      bindtap="startGame"
+    >
+      🚀 开始游戏 ({{playersArray.length}}/4)
+    </button>
+  
+    <!-- Host Invite Button -->
+    <button 
+      wx:if="{{isHost && playersArray.length < 4 && roomId}}" 
+      class="ghost action-btn share-btn" 
       open-type="share"
     >
       邀请微信好友
     </button>
     
+    <!-- Dev simulate -->
     <button 
-      wx:if="{{isHost && !guestJoined && roomId}}" 
+      wx:if="{{isHost && playersArray.length < 4 && roomId}}" 
       class="ghost action-btn" 
       bindtap="devSimulateJoin" 
-      style="border: 1px dashed rgba(255,255,255,0.3); margin-top: 20rpx; color: var(--muted);"
+      style="border: 1px dashed rgba(255,255,255,0.3); margin-top: 10rpx; color: var(--muted); font-size: 24rpx; padding: 10rpx;"
     >
-      [测试] 模拟对手加入
+      + [测试] 塞入1名机器人
     </button>
     
     <button 
       class="ghost action-btn" 
       bindtap="leaveRoom"
+      style="margin-top: 20rpx;"
     >
       返回首页
     </button>

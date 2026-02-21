@@ -7,14 +7,81 @@
   min-height: 100vh;
 }
 
-/* Multiplayer Tracker */
-.opponent-tracker {
+/* Round & Timer Banner */
+.round-banner {
+  padding: 24rpx 40rpx;
+  border-radius: 20rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(20, 20, 20, 0.6);
+  border-bottom: 2rpx solid rgba(255,107,0,0.3);
+  box-shadow: 0 8rpx 32rpx rgba(0,0,0,0.5);
+  animation: popIn 0.3s ease-out forwards;
+}
+
+.round-text {
+  font-size: 32rpx;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 4rpx;
+  text-transform: uppercase;
+  text-shadow: 0 0 16rpx rgba(255,255,255,0.2);
+}
+
+.timer {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  background: rgba(255, 107, 0, 0.1);
+  padding: 8rpx 24rpx;
+  border-radius: 100rpx;
+  border: 1rpx solid var(--accent);
+}
+
+.timer .icon {
+  font-size: 28rpx;
+}
+
+.timer .time {
+  font-size: 36rpx;
+  font-weight: 900;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 2rpx;
+}
+
+/* Urgent state for last 10 seconds */
+.round-banner.urgent .timer {
+  background: rgba(255, 46, 0, 0.2);
+  border-color: #FF2E00;
+  animation: pulseRed 1s infinite;
+}
+
+.round-banner.urgent .timer .time {
+  color: #FF2E00;
+}
+
+@keyframes pulseRed {
+  0% { box-shadow: 0 0 0 0 rgba(255, 46, 0, 0.4); }
+  70% { box-shadow: 0 0 0 20rpx rgba(255, 46, 0, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 46, 0, 0); }
+}
+
+/* Multiplayer Trackers */
+.multiplayer-trackers {
   padding: 24rpx 32rpx;
   border-radius: 20rpx;
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
+  gap: 24rpx;
   animation: popIn 0.4s ease-out forwards;
+}
+
+.tracker-row {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
 }
 
 .tracker-info {
@@ -23,15 +90,14 @@
   align-items: center;
 }
 
-.tracker-label {
-  font-size: 26rpx;
-  color: var(--muted);
-  font-weight: bold;
-  letter-spacing: 2rpx;
+.tracker-name {
+  font-size: 24rpx;
+  color: #fff;
+  font-weight: 600;
 }
 
 .tracker-value {
-  font-size: 26rpx;
+  font-size: 24rpx;
   color: var(--accent);
   font-weight: bold;
 }
@@ -198,8 +264,8 @@
 
 .grid-row {
   display: grid;
-  /* Name | Team | Conf | Div | Pos | Ht | Age | Num */
-  grid-template-columns: 2fr 1.2fr 1fr 1fr 1.2fr 1.4fr 0.9fr 0.9fr;
+  /* Name | Team | Conf | Pos | Ht | Age | Num */
+  grid-template-columns: 2fr 1.5fr 1.1fr 1.3fr 1.4fr 0.9fr 0.9fr;
   gap: 8rpx;
 }
 

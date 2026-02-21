@@ -1,12 +1,23 @@
 <view class="container">
-  <!-- Multiplayer Progress Tracker -->
-  <view class="opponent-tracker glass" wx:if="{{roomId}}">
-    <view class="tracker-info">
-      <text class="tracker-label">对手进度</text>
-      <text class="tracker-value">已猜 {{opponentGuesses}} 次</text>
+  <!-- Round & Timer Banner (Multi-Round Only) -->
+  <view class="round-banner glass {{timeRemaining <= 10 ? 'urgent' : ''}}" wx:if="{{roomId && totalRounds > 0}}">
+    <text class="round-text">Round {{currentRound}} / {{totalRounds}}</text>
+    <view class="timer">
+      <text class="icon">⏳</text>
+      <text class="time">{{timeFormatted || '00:00'}}</text>
     </view>
-    <view class="progress-bar">
-      <view class="progress-fill" style="width: {{(opponentGuesses / 8) * 100}}%"></view>
+  </view>
+
+  <!-- Multiplayer Progress Trackers -->
+  <view class="multiplayer-trackers glass" wx:if="{{roomId && opponents.length > 0}}">
+    <view class="tracker-row" wx:for="{{opponents}}" wx:key="id">
+      <view class="tracker-info">
+        <text class="tracker-name">{{item.name}}</text>
+        <text class="tracker-value">{{totalRounds > 0 ? (config.guesses === 999 ? item.guesses + '/∞' : item.guesses + '/' + config.guesses) : item.guesses + '/8'}}</text>
+      </view>
+      <view class="progress-bar">
+        <view class="progress-fill" style="width: {{totalRounds > 0 ? (config.guesses === 999 ? (item.guesses > 0 ? 30 : 0) : (item.guesses >= config.guesses ? 100 : (item.guesses / config.guesses) * 100)) : (item.guesses / 8) * 100}}%"></view>
+      </view>
     </view>
   </view>
 
@@ -33,12 +44,17 @@
         </view>
       </picker>
 
-      <view 
-        class="filter-reset-btn" 
-        wx:if="{{selectedConf || selectedTeam || selectedPos}}" 
-        bindtap="resetFilters"
-      >
-        ✕
+      <view class="filter-controls-right" style="margin-left: auto; display: flex; align-items: center; gap: 16rpx;">
+        <view wx:if="{{totalRounds > 0}}" style="font-size: 20rpx; color: var(--muted); padding-top: 4rpx;">
+          雷达剩余: <text style="color: {{filterUsesLeft > 0 ? 'var(--accent)' : 'var(--bad)'}}; font-weight: bold;">{{config.radars === 999 ? '∞' : filterUsesLeft}}</text>
+        </view>
+        <view 
+          class="filter-reset-btn" 
+          wx:if="{{selectedConf || selectedTeam || selectedPos}}" 
+          bindtap="resetFilters"
+        >
+          ✕
+        </view>
       </view>
     </view>
 
@@ -51,9 +67,12 @@
         bindinput="onInput"
         placeholder-style="color: var(--muted); font-size: 28rpx;"
       />
-      <view class="guess-count">{{guesses.length}} / 8</view>
+      <view class="guess-count">{{guesses.length}} / {{totalRounds > 0 ? (config.guesses === 999 ? '∞' : config.guesses) : 8}}</view>
     </view>
-    <scroll-view scroll-y class="search-results" wx:if="{{searchResults.length > 0}}">
+    <scroll-view scroll-y class="search-results" wx:if="{{inputVal || selectedConf || selectedTeam || selectedPos}}">
+      <view class="search-item empty-state" wx:if="{{searchResults.length === 0}}" style="justify-content: center;">
+        <text style="color: var(--muted); font-size: 26rpx;">未找到符合条件的球员</text>
+      </view>
       <view 
         class="search-item" 
         wx:for="{{searchResults}}" 
@@ -74,7 +93,6 @@
       <view class="header-cell">球员</view>
       <view class="header-cell">球队</view>
       <view class="header-cell">联盟</view>
-      <view class="header-cell">分区</view>
       <view class="header-cell">位置</view>
       <view class="header-cell">身高</view>
       <view class="header-cell">年龄</view>
@@ -89,7 +107,6 @@
             <view class="content">{{item.team.value}}</view>
         </view>
         <view class="cell {{item.conf.status}}">{{item.conf.value}}</view>
-        <view class="cell {{item.div.status}}">{{item.div.value}}</view>
         <view class="cell {{item.pos.status}}">{{item.pos.value}}</view>
         <view class="cell {{item.height.status}}">
           {{item.height.value}}
@@ -119,8 +136,8 @@
           <view class="result-subtitle">{{gameState === 'won' ? '无情碾压' : (opponentWon ? '被无情碾压' : '遗憾离场')}}</view>
         </block>
         <block wx:else>
-          <view class="result-title">{{gameState === 'won' ? '挑战成功' : '挑战失败'}}</view>
-          <view class="result-subtitle">{{gameState === 'won' ? '恭喜你！' : '再接再厉'}}</view>
+          <view class="result-title">{{gameState === 'won' ? 'YOU WIN!' : 'GAME OVER'}}</view>
+      <view class="result-subtitle">{{gameState === 'won' ? '牛逼！你猜中了！' : (winnerName ? '遗憾！' + winnerName + '率先猜中！' : '太遗憾了...')}}</view>
         </block>
       </view>
       
@@ -131,10 +148,39 @@
       </view>
 
       <view class="action-buttons">
-          <button class="share-btn primary" open-type="share">炫耀战绩</button>
+          <button class="share-btn primary" open-type="share" wx:if="{{!roomId}}">炫耀战绩</button>
           <button class="restart-btn ghost" bindtap="startNewGame" wx:if="{{!roomId}}">重新挑战</button>
-          <navigator url="/pages/index/index" open-type="reLaunch" class="restart-btn ghost" style="display:flex; justify-content:center; align-items:center;" wx:if="{{roomId}}">返回主城</navigator>
+          
+          <view wx:if="{{roomId}}" style="text-align: center; width: 100%; color: var(--muted); font-size: 28rpx; padding: 20rpx 0;">
+            <text>即将进入下一轮，请稍候...</text>
+          </view>
       </view>
     </view>
   </view>
+
+  <!-- Final Leaderboard Modal -->
+  <view class="modal-mask" wx:if="{{gameState === 'finished'}}">
+    <view class="modal-content result-modal glass" style="padding: 60rpx 40rpx; width: 90%;">
+      <view class="result-header">
+         <view class="result-title" style="font-size: 48rpx;">全部轮次结束</view>
+         <view class="result-subtitle" style="color: var(--accent); margin-top: 10rpx;">🏅 最终排行榜 🏅</view>
+      </view>
+      
+      <view class="leaderboard" style="margin: 40rpx 0; display: flex; flex-direction: column; gap: 20rpx;">
+         <view class="lb-row glass" wx:for="{{leaderboard}}" wx:key="id" style="display: flex; align-items: center; padding: 24rpx; border-radius: 16rpx; gap: 24rpx; background: rgba(255,255,255,0.05);">
+            <view class="lb-rank" style="font-size: 40rpx; font-weight: 900; color: {{index === 0 ? '#FFD700' : (index === 1 ? '#C0C0C0' : (index === 2 ? '#CD7F32' : 'var(--muted)'))}};">#{{index + 1}}</view>
+            <view class="lb-info" style="flex: 1; display: flex; flex-direction: column; gap: 4rpx;">
+              <text class="lb-name" style="font-size: 32rpx; font-weight: bold; color: #fff;">{{item.name}}</text>
+              <text class="lb-score" style="font-size: 24rpx; color: var(--accent);">答对 {{item.totalCorrect}} 题 / 耗费 {{item.totalAttempts}} 猜</text>
+            </view>
+            <view class="lb-time" style="font-size: 28rpx; color: rgba(255,255,255,0.6); font-variant-numeric: tabular-nums;">{{item.timeSecs}}s</view>
+         </view>
+      </view>
+
+      <view class="action-buttons">
+          <navigator url="/pages/index/index" open-type="reLaunch" class="restart-btn primary" style="display:flex; justify-content:center; align-items:center;">返回大厅</navigator>
+      </view>
+    </view>
+  </view>
+
 </view>

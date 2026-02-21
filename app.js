@@ -1,6 +1,7 @@
 App({
   globalData: {
-    env: "cloud1-4gavsni7e030b67a"
+    env: "cloud1-4gavsni7e030b67a",
+    playerId: null
   },
   onLaunch() {
     if (!wx.cloud) {
@@ -13,5 +14,12 @@ App({
       env: env,
       traceUser: true
     });
+
+    let playerId = wx.getStorageSync('playerId');
+    if (!playerId) {
+      playerId = 'P_' + Math.random().toString(36).substring(2, 8);
+      wx.setStorageSync('playerId', playerId);
+    }
+    this.globalData.playerId = playerId;
   }
 });

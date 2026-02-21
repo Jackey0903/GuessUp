@@ -1,20 +1,36 @@
 const db = wx.cloud.database();
+const app = getApp();
 
 Page({
     data: {
         roomId: '',
         isHost: false,
-        guestJoined: false,
+        playersArray: [],
+        roomState: 'waiting',
         statusText: '正在创建房间...',
-        watcher: null
+        房间初始状态: '正在创建房间...',
+        statusText: '正在创建房间...',
+        watcher: null,
+        _realDbId: '',
+        configOptions: {
+            rounds: [{ label: '4题', value: 4 }, { label: '6题', value: 6 }, { label: '8题', value: 8 }, { label: '10题', value: 10 }],
+            guesses: [{ label: '5次', value: 5 }, { label: '6次', value: 6 }, { label: '8次', value: 8 }, { label: '10次', value: 10 }, { label: '无限次', value: 999 }],
+            radars: [{ label: '禁用', value: 0 }, { label: '1次', value: 1 }, { label: '3次', value: 3 }, { label: '5次', value: 5 }, { label: '无限', value: 999 }],
+            time: [{ label: '60秒', value: 60 }, { label: '90秒', value: 90 }, { label: '120秒', value: 120 }, { label: '休闲(300s)', value: 300 }]
+        },
+        configIndexes: {
+            rounds: 0, // default 4
+            guesses: 1, // default 6
+            radars: 2, // default 3
+            time: 2 // default 120
+        },
+        config: { rounds: 4, guesses: 6, radars: 3, time: 120 }
     },
 
     onLoad(options) {
         if (options.roomId) {
-            // User is joining via a shared link
             this.joinRoom(options.roomId);
         } else {
-            // User is creating a new room
             this.createRoom();
         }
     },
@@ -36,29 +52,47 @@ Page({
 
         try {
             const { players } = require('../../utils/players.js');
-            const randomIndex = Math.floor(Math.random() * players.length);
-            const target = players[randomIndex];
+            const targetIds = [];
+            let availablePlayers = [...players];
+            // Get random targets based on current selected totalRounds
+            const numRounds = this.data.config.rounds;
+            for (let i = 0; i < numRounds; i++) {
+                if (availablePlayers.length === 0) break;
+                const rIdx = Math.floor(Math.random() * availablePlayers.length);
+                targetIds.push(availablePlayers[rIdx].id);
+                availablePlayers.splice(rIdx, 1);
+            }
 
-            // Generate a 4-digit numeric short code
             const shortCode = Math.floor(1000 + Math.random() * 9000).toString();
+            const myId = app.globalData.playerId;
 
             const res = await db.collection('rooms').add({
                 data: {
                     createdAt: db.serverDate(),
                     shortCode: shortCode,
                     state: 'waiting',
-                    hostId: 'host_temp_id',
-                    guestId: null,
-                    targetId: target.id,
-                    hostGuesses: 0,
-                    guestGuesses: 0,
-                    winner: null
+                    targetIds: targetIds,
+                    currentRound: 1,
+                    totalRounds: targetIds.length,
+                    capacity: 4,
+                    config: this.data.config,
+                    players: {
+                        [myId]: {
+                            name: '房主',
+                            isHost: true,
+                            guesses: 0,
+                            scores: [],
+                            totalCorrect: 0,
+                            totalAttempts: 0,
+                            totalTimeMs: 0
+                        }
+                    }
                 }
             });
 
             this.setData({
-                roomId: shortCode, // Display the 4-digit code instead of the long ID
-                _realDbId: res._id, // Keep the real ID for watcher
+                roomId: shortCode,
+                _realDbId: res._id,
                 statusText: '等待挑战者加入...'
             });
 
@@ -82,7 +116,6 @@ Page({
         wx.showLoading({ title: '连线中...', mask: true });
 
         try {
-            // Find the room by 4-digit short code
             const queryRes = await db.collection('rooms').where({
                 shortCode: shortCode,
                 state: 'waiting'
@@ -92,30 +125,35 @@ Page({
                 throw new Error('Room not found or already playing');
             }
 
-            const realDbId = queryRes.data[0]._id;
+            const roomData = queryRes.data[0];
+            const realDbId = roomData._id;
+            const myId = app.globalData.playerId;
 
-            // Update the room to indicate guest has joined
+            // Generate a random guest name
+            const guestNames = ["挑战者", "黑马", "新秀", "老将"];
+            const rName = guestNames[Math.floor(Math.random() * guestNames.length)] + Math.floor(Math.random() * 100);
+
             await db.collection('rooms').doc(realDbId).update({
                 data: {
-                    state: 'playing',
-                    guestId: 'guest_temp_id'
+                    [`players.${myId}`]: {
+                        name: rName,
+                        isHost: false,
+                        guesses: 0,
+                        scores: [],
+                        totalCorrect: 0,
+                        totalAttempts: 0,
+                        totalTimeMs: 0
+                    }
                 }
             });
 
             this.setData({
                 _realDbId: realDbId,
-                guestJoined: true,
-                statusText: '连线成功！准备载入...'
+                statusText: '连线成功！等待房主开始...'
             });
 
             wx.hideLoading();
-
-            wx.vibrateLong();
-            setTimeout(() => {
-                wx.redirectTo({
-                    url: `/pages/game/game?roomId=${realDbId}&role=guest`
-                });
-            }, 1500);
+            this.watchRoom(realDbId);
 
         } catch (err) {
             console.error(err);
@@ -132,22 +170,33 @@ Page({
                 if (snapshot.docs.length === 0) return;
 
                 const roomData = snapshot.docs[0];
+                const playersObj = roomData.players || {};
 
-                if (this.data.isHost && roomData.state === 'playing' && !this.data.guestJoined) {
-                    // Guest just joined
-                    this.setData({
-                        guestJoined: true,
-                        statusText: '挑战者已就位！'
-                    });
+                // Format players array for UI
+                const playersArr = Object.keys(playersObj).map(k => ({
+                    id: k,
+                    ...playersObj[k]
+                }));
 
+                // Sort array: Host first
+                playersArr.sort((a, b) => b.isHost - a.isHost);
+
+                this.setData({
+                    playersArray: playersArr,
+                    roomState: roomData.state,
+                    config: roomData.config || this.data.config
+                });
+
+                if (roomData.state === 'round_1') {
+                    this.setData({ statusText: '游戏即将开始！' });
                     wx.vibrateLong();
 
                     setTimeout(() => {
                         this.closeWatcher();
                         wx.redirectTo({
-                            url: `/pages/game/game?roomId=${this.data._realDbId}&role=host`
+                            url: `/pages/game/game?roomId=${this.data._realDbId}`
                         });
-                    }, 1500);
+                    }, 1000);
                 }
             },
             onError: (err) => {
@@ -158,17 +207,68 @@ Page({
         this.setData({ watcher });
     },
 
-    async devSimulateJoin() {
-        wx.showLoading({ title: '模拟连线...', mask: true });
-        try {
-            await db.collection('rooms').doc(this.data.roomId).update({
+    async onConfigChange(e) {
+        if (!this.data.isHost) return;
+        const param = e.currentTarget.dataset.param;
+        const index = e.detail.value;
+        const val = this.data.configOptions[param][index].value;
+
+        // Optimistically update UI
+        const newIndexes = { ...this.data.configIndexes, [param]: index };
+        const newConfig = { ...this.data.config, [param]: val };
+
+        this.setData({
+            configIndexes: newIndexes,
+            config: newConfig
+        });
+
+        if (this.data._realDbId && param !== 'rounds') {
+            await db.collection('rooms').doc(this.data._realDbId).update({
                 data: {
-                    state: 'playing',
-                    guestId: 'dev_guest_id'
+                    [`config.${param}`]: val
+                }
+            });
+        }
+    },
+
+    async startGame() {
+        if (!this.data.isHost) return;
+        wx.showLoading({ title: '发布开始指令...', mask: true });
+
+        try {
+            await db.collection('rooms').doc(this.data._realDbId).update({
+                data: {
+                    state: 'round_1',
+                    roundStartTime: Date.now()
                 }
             });
             wx.hideLoading();
-            // The watcher will handle the rest!
+            // Watcher will navigate to game
+        } catch (e) {
+            console.error(e);
+            wx.hideLoading();
+            wx.showToast({ title: '开始失败', icon: 'none' });
+        }
+    },
+
+    async devSimulateJoin() {
+        wx.showLoading({ title: '模拟连线...', mask: true });
+        try {
+            const devId = 'P_SIM_' + Math.floor(Math.random() * 9000);
+            await db.collection('rooms').doc(this.data._realDbId).update({
+                data: {
+                    [`players.${devId}`]: {
+                        name: '测试AI',
+                        isHost: false,
+                        guesses: 0,
+                        scores: [],
+                        totalCorrect: 0,
+                        totalAttempts: 0,
+                        totalTimeMs: 0
+                    }
+                }
+            });
+            wx.hideLoading();
         } catch (e) {
             console.error(e);
             wx.hideLoading();
@@ -179,13 +279,13 @@ Page({
     onShareAppMessage() {
         if (this.data.roomId && this.data.isHost) {
             return {
-                title: '我发起了一场 NBA 球星竞猜 1v1 挑战，敢来应战吗？',
+                title: '快来加入我的 NBA 球星竞猜大混战！',
                 path: `/pages/room/room?roomId=${this.data.roomId}`,
-                imageUrl: '' // Optional vs image
+                imageUrl: ''
             };
         }
         return {
-            title: '吾猜(哈登冠名版) - 每天一位神秘NBA球星',
+            title: '吾猜(哈登冠名版) - 多人实时联机',
             path: '/pages/index/index'
         };
     },
